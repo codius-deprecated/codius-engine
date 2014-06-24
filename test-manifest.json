@@ -1,0 +1,5 @@
+{
+  "api_modules": {
+    "foo": "some_id_or_path"
+  }
+}
