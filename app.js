@@ -1,11 +1,17 @@
+var fs            = require('fs');
 var Sandbox       = require('sandbox');
 var ApiHandler    = require('./lib/api-handler');
 
+// Load API Modules (trusted)
 var foo_manifest  = require('./api_modules/foo/manifest.json');
 var foo_module    = require('./api_modules/foo');
 
+// Load Contract Code (untrusted)
 var test_manifest = require('./test-manifest.json');
-var test_contract = require('./test-contract');
+var test_contract = fs.readFileSync('./test-contract.js', { encoding: 'utf8' });
+
+// Load Contract Libraries (untrusted)
+var callback_handler = fs.readFileSync('./contract_libraries/callback-handler.js', { encoding: 'utf8' });
 
 function runContract(manifest, code, callback) {
 
@@ -15,11 +21,25 @@ function runContract(manifest, code, callback) {
   // TODO: do this based on the contract's manifest
   apihandler.registerApi(foo_manifest, foo_module);
 
+  // Load Contract Libraries
+  // TODO: do this based on the manifest
+  code = callback_handler + ';' + code;
+
   // Create sandbox and run contract
   var sandbox = new Sandbox();
 
   // Setup message listener to handle calls from within the sandbox
-  sandbox.on('message', function(message){
+  // Note that messages must be sent as strings!
+  sandbox.on('message', function(message_string){
+
+    var message;
+    try {
+      message = JSON.parse(String(message_string));
+    } catch(error) {
+      throw new Error('Invalid message: ' + String(message_string))
+    }
+
+    console.log('got message: ', message);
 
     var parameters = {
       module: message.module,
@@ -43,6 +63,6 @@ function runContract(manifest, code, callback) {
 
 }
 
-runContract(test_manifest, '(' + test_contract.toString() + ')()', function(error, result){
-  // console.log('error:', error, 'result:', result);
+runContract(test_manifest, test_contract, function(error, result){
+  console.log('error:', error, 'result:', result);
 });
