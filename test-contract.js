@@ -1,15 +1,23 @@
 console.log('contract running');
 
-var message = {
+postMessage({
   module: 'foo',
   method: 'foo',
   data: 'my bar'
-};
-
-console.log('sandboxed code posting message: ' + JSON.stringify(message));
-postMessage(message, foo_handler);
-
-function foo_handler (error, result) {
+}, function (error, result) {
   console.log('in sandboxed code foo_handler got error: ' + error + ' result: ' + result);
+});
+
+postMessage({
+  module: 'fs',
+  method: 'readFile',
+  data: JSON.stringify({
+    filename: 'test-file.txt',
+    options: {
+      encoding: 'utf8'
+    }
+  })
+}, function(error, result){
+  console.log('readFile error: ' + error + ' result: ' + result);
   process.exit();
-}
+});

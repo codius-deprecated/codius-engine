@@ -2,7 +2,7 @@
   "api_modules": {
     "foo": "some_id_or_path"
   },
-  "contract_libraries": {
-    "callback_handler": "some_other_id_or_path"
+  "files": {
+    "test-file.txt": "830445e86a0cfafac4e1531002356f384847a11a7456fb8ccb81ab36e37bff28"
   }
 }
