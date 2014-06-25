@@ -3,7 +3,8 @@
 // to the CallbackHandler. Instead, sandboxed code should
 // use the global postMessage command that overwritten by
 // a modified version when this file is loaded into the sandbox
-(function(){
+(function(context){
+  'use strict';
 
   /**
    *  Replace the global postMessage and onmessage functions
@@ -12,7 +13,6 @@
    *  Note that addCallbacksToIPCMessaging is invoked at the bottom of this file.
    */
   function addCallbacksToIPCMessaging() {
-    var context = this;
     var callback_handler = new CallbackHandler(context);
 
     // Overwrite global methods
@@ -123,4 +123,4 @@
 
   addCallbacksToIPCMessaging();
 
-})();
+})(this);
