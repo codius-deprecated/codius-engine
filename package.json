@@ -6,6 +6,7 @@
     "url": "https://github.com/emschwartz/sandbox.git"
   },
   "dependencies": {
+    "async": "^0.9.0",
     "sandbox": "https://github.com/emschwartz/sandbox/tarball/v0.9.0"
   }
 }

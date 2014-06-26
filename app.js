@@ -1,75 +1,60 @@
-var fs            = require('fs');
-var Sandbox       = require('sandbox');
-var ApiHandler    = require('./lib/api-handler');
+var fs = require('fs');
+var async = require('async');
+var crypto = require('crypto');
+var Engine = require('./engine');
 
-// Load API Modules (trusted)
-var foo_manifest  = require('./api_modules/foo/manifest.json');
-var foo_module    = require('./api_modules/foo');
-var fs_manifest   = require('./api_modules/fs/manifest.json');
-var fs_module     = require('./api_modules/fs');
+var CONTRACT_DIR = __dirname + '/test_contract/';
+var FILESYSTEM_DIR = __dirname + '/contract_filesystem/';
 
-// Load Contract Code (untrusted)
-var test_manifest = require('./test-manifest.json');
-var test_contract = fs.readFileSync('./test-contract.js', { encoding: 'utf8' });
+/**
+ *  Load hash all contract files and resave them into the
+ *  contract_filesystem.
+ *
+ *  Note that this is only for testing purposes and this
+ *  functionality will be handled by the contract host in the future.
+ */
+var test_contract_files = fs.readdirSync(CONTRACT_DIR);
+if (!fs.existsSync(FILESYSTEM_DIR)) {
+  fs.mkdirSync(FILESYSTEM_DIR);
+}
+var test_contract_manifest_hash;
 
-// Load Contract Libraries (untrusted)
-var callback_handler = fs.readFileSync('./contract_libraries/callback-handler.js', { encoding: 'utf8' });
+async.eachSeries(test_contract_files, function(filename, async_callback){
 
-function runContract(manifest, code, callback) {
+  var fd = fs.createReadStream(CONTRACT_DIR + filename);
+  var hash = crypto.createHash('sha512');
+  hash.setEncoding('hex');
 
-  var apihandler = new ApiHandler();
+  fd.on('end', function() {
+      hash.end();
+      var file_hash = hash.read().slice(0,64);
 
-  // Register Contract Files
-  var contract_files = manifest.files;
-  var contract_filesystem = new fs_module(contract_files);
+      if (filename.indexOf('manifest') !== -1) {
+        test_contract_manifest_hash = file_hash;
+      }
 
-  // Register APIs
-  // TODO: do this based on the contract's manifest
-  apihandler.registerApi(foo_manifest, foo_module);
-  apihandler.registerApi(fs_manifest, contract_filesystem);
+      var new_file = fs.createWriteStream(FILESYSTEM_DIR + file_hash);
+      fd = fs.createReadStream(CONTRACT_DIR + filename);
 
-  // Load Contract Libraries
-  // TODO: do this based on the manifest
-  code = callback_handler + ';' + code;
+      fd.pipe(new_file);
 
-  // Create sandbox and run contract
-  var sandbox = new Sandbox();
-
-  // Setup message listener to handle calls from within the sandbox
-  // Note that messages must be sent as strings!
-  sandbox.on('message', function(message_string){
-
-    var message;
-    try {
-      message = JSON.parse(String(message_string));
-    } catch(error) {
-      throw new Error('Invalid message: ' + String(message_string))
-    }
-
-    console.log('got message: ', message);
-
-    var parameters = {
-      module: message.module,
-      method: message.method,
-      data: message.data
-    };
-    var contract_callback = function(error, result) {
-      console.log('contract_callback got error:', error, 'result:', result);
-      sandbox.postMessage(JSON.stringify({
-        type: 'callback',
-        callback: message.callback,
-        error: error,
-        result: result
-      }));
-    };
-
-    apihandler.callApi(parameters, contract_callback);
+      fd.on('end', async_callback);
   });
 
-  sandbox.run(code, callback);
+  // read all file and pipe it (write it) to the hash object
+  fd.pipe(hash);
 
-}
+}, function(error){
+  if (error) {
+    throw error;
+  }
 
-runContract(test_manifest, test_contract, function(error, result){
-  console.log('final runContract error:', error, 'result:', result);
+
+  /**
+   *  Create a new Engine and run the test contract
+   */
+  var engine = new Engine();
+  engine.runContract(test_contract_manifest_hash, function(error, result){
+    console.log('final error:', error, 'result:', result);
+  });
 });

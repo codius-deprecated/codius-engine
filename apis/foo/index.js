@@ -1,6 +1,6 @@
 module.exports.foo = foo;
 
-function foo(data, callback) {
+function foo(manifest, data, callback) {
   console.log('api module foo was called with data: ' + data);
   callback(null, data);
 }
