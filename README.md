@@ -8,7 +8,7 @@ API call with callback
 ```js
 {
   "type": "api",
-  "module": "http",
+  "api": "http",
   "method": "get",
   "data": "http://some.url",
   "callback": 4

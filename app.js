@@ -29,6 +29,8 @@ async.eachSeries(test_contract_files, function(filename, async_callback){
       hash.end();
       var file_hash = hash.read().slice(0,64);
 
+      console.log(filename + ': ' + file_hash);
+
       if (filename.indexOf('manifest') !== -1) {
         test_contract_manifest_hash = file_hash;
       }
@@ -54,6 +56,7 @@ async.eachSeries(test_contract_files, function(filename, async_callback){
    *  Create a new Engine and run the test contract
    */
   var engine = new Engine();
+  console.log('Run contract: ' + test_contract_manifest_hash);
   engine.runContract(test_contract_manifest_hash, function(error, result){
     console.log('final error:', error, 'result:', result);
   });

@@ -1,7 +1,7 @@
 console.log('contract running');
 
 postMessage({
-  module: 'foo',
+  api: 'foo',
   method: 'foo',
   data: 'my bar'
 }, function (error, result) {
@@ -9,7 +9,7 @@ postMessage({
 });
 
 postMessage({
-  module: 'fs',
+  api: 'fs',
   method: 'readFile',
   data: JSON.stringify({
     filename: 'test-file.txt',
