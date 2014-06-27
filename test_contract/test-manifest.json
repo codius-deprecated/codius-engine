@@ -5,7 +5,10 @@
   "main": "test-contract.js",
   "apis": [ "foo", "fs" ],
   "files": {
-    "test-contract.js": "fc22ee7165a81ac174e39ed79828e7897a7cc00d7ef81181a74e55d0eae80f8a",
+    "test-contract.js": "d9dc624ccba401696b6e185384d5806bc9dd04ef6c89594ac18c8737acfd4ca2",
     "test-file.txt": "830445e86a0cfafac4e1531002356f384847a11a7456fb8ccb81ab36e37bff28"
+  },
+  "modules": {
+    "test_module": "c0f97560d57f848f0ae950446bbb63136cbd3fdfcba35d40016530d2dc31580e"
   }
 }
