@@ -8,7 +8,7 @@ var HASH_REGEX = /^[0-9a-fA-F]{64}$/;
 // This regex checks for the presence of the "contract_modules/"
 // string at the beginning of the string and captures the module name
 // TODO: support windows?
-var FILEPATH_ESCAPED_CHARACTERS = '\/\\\?\%\*\:\|\"\<\>\.\,\;\(\)\&\# ';
+var FILEPATH_ESCAPED_CHARACTERS = '\/\\\?\%\*\:\|\"\<\>\.\,\;\(\)\&\#\s';
 var CONTRACT_MODULES_STRING = '^\/?contract_modules\/((?:[^' + FILEPATH_ESCAPED_CHARACTERS + ']|\\[' + FILEPATH_ESCAPED_CHARACTERS + '])+)';
 var CONTRACT_MODULES_REGEX = new RegExp(CONTRACT_MODULES_STRING);
 
