@@ -8,9 +8,11 @@ var HASH_REGEX = /^[0-9a-fA-F]{64}$/;
 // This regex checks for the presence of the "contract_modules/"
 // string at the beginning of the string and captures the module name
 // TODO: support windows?
-var FILEPATH_ESCAPED_CHARACTERS = '\/\\\?\%\*\:\|\"\<\>\.\,\;\(\)\&\#\s';
+var FILEPATH_ESCAPED_CHARACTERS = '\\' + [ '/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', '.', ',', ';', '(', ')', '&', '#', '\s' ].join('\\');
 var CONTRACT_MODULES_STRING = '^\/?(?:contract_modules\/)?((?:[^' + FILEPATH_ESCAPED_CHARACTERS + ']|\\[' + FILEPATH_ESCAPED_CHARACTERS + '])+)';
 var CONTRACT_MODULES_REGEX = new RegExp(CONTRACT_MODULES_STRING);
+
+console.log(CONTRACT_MODULES_STRING);
 
 /**
  *  Read a file using the map specified in the contract
@@ -103,6 +105,16 @@ function readFile(manifest, data, callback) {
 
     // Replace the contract_modules/module_name part of the path
     var path_in_module = path.replace(CONTRACT_MODULES_REGEX, '');
+
+    // If the path that's left is empty the load the module's main file
+    if (path_in_module === '') {
+      if (module_manifest.main) {
+        path_in_module = module_manifest.main;
+      } else {
+        callback(new Error('No main file declared in manifest for module: ' + module_name));
+        return;
+      }
+    }
 
     // Recursively call readFile on the module
     setImmediate(function(){
