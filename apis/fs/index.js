@@ -1,4 +1,5 @@
-var fs = require('fs');
+var fs          = require('fs');
+var path_module = require('path');
 
 // TODO: make this configurable
 var FILE_SYSTEM_ROOT = __dirname + '/../../contract_filesystem/';
@@ -41,13 +42,20 @@ function readFile(manifest, data, callback) {
 
   var file_hash;
 
-  // TODO: handle "." and ".." and leading "/"
+  // Normalize path to handle "." and ".."
+  path = path_module.normalize(path);
+
+  console.log(path);
 
   // If the file is declared in this manifest, use that file
   // If not, see if the path refers to a file in one of the contract modules
 
   // TODO: handle the leading slash better
-  var file_hash = manifest.files[path] || manifest.files[path.replace('/', '')];
+  var file_hash = manifest.files[path] ||
+    manifest.files[path.replace('/', '')] ||
+    manifest.files['/' + path] ||
+    manifest.files['./' + path];
+
   if (file_hash) {
 
     // Case: file declared in this manifest
