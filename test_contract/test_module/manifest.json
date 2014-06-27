@@ -1,5 +1,6 @@
 {
+  "main": "index.js",
   "files": {
-    "index.js": "65980f34421fab8aa1b91832612e8874bb87b27149c5c49dc5e747e64409bede"
+    "index.js": "9d56ea80697d96f70eb87fbdca0716270d4276f058e1d150f700dacbb427a043"
   }
 }

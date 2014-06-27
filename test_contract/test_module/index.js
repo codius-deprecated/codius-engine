@@ -1,1 +1,3 @@
-console.log('test_module file was found!');
+module.exports = {
+  some_key: 'some_data'
+};
