@@ -1,32 +1,13 @@
 (function(context){
   'use strict';
 
-  // module_identifiers can include any characters allowed by the filesystem
-  // These regular expressions match JS and JSON file names to
-  // determine how to parse the resulting file
-  var FILEPATH_ESCAPED_CHARACTERS = '\\' + [ '/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', ',', ';', '(', ')', '&', '#', '\s' ].join('\\');
-  var ALLOWED_CHARACTERS = '[^' + FILEPATH_ESCAPED_CHARACTERS + ']|\\[' + FILEPATH_ESCAPED_CHARACTERS + ']';
-  var JAVASCRIPT_FILE_STRING = '[//]?(' + ALLOWED_CHARACTERS + '+(?:\.js|\.JS)?)$';
-  var JSON_FILE_STRING = '[//]?(' + ALLOWED_CHARACTERS + '+(?:\.json|\.JSON))$';
-  var JAVASCRIPT_FILE_REGEX = new RegExp(JAVASCRIPT_FILE_STRING);
-  var JSON_FILE_REGEX = new RegExp(JSON_FILE_STRING);
-
-  function readFile(path, callback) {
-    postMessage({
-      api: 'fs',
-      method: 'readFile',
-      data: JSON.stringify({
-        path: path,
-        options: {
-          encoding: 'utf8'
-        }
-      })
-    }, callback);
-  }
+  // This regex is from the Node.js source code:
+  // https://github.com/joyent/node/blob/b9bec2031e5f44f47cf01c3ec466ab8cddfa94f6/lib/path.js#L308-L311
+  var PATH_SPLITTER_REGEX = /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/i;
 
   /**
-   *  Load a module or file based on its module_identifier and
-   *  pass the results to the callback. Note that the callback is
+   *  Load a module or javascript or JSON file based on its module_identifier
+   *  and pass the results to the callback. Note that the callback is
    *  mandatory because this version of require is asynchronous.
    *
    *  If the module_identifier has no extension or a ".js" extension
@@ -48,58 +29,81 @@
       throw new Error('require is asynchronous. Must provide a callback');
     }
 
+    var extension = (splitPath(module_identifier).ext || '.js').toLowerCase();
+
+    if (extension !== '.js' && extension !== '.json') {
+      callback(new Error('require can only be used to load modules, javascript files, and JSON files'));
+      return;
+    }
+
     readFile(module_identifier, function(error, result){
       if (error) {
         callback(error);
         return;
       }
 
-      if (JAVASCRIPT_FILE_REGEX.test(module_identifier)) {
-
-        var module = {};
-        var exports;
-
-        try {
-          // eval the module code to extract the module.exports section
-          eval('(function(module){"use strict";' + result + '})(module);');
-        } catch(error) {
-          callback(new Error('Error requiring module: ' + module_identifier + '. ' + error));
-          return;
-        }
-
-        exports = module.exports || module;
-
-        // Add the module name to the exports object, as per
-        // the CommonJS spec for require
-        exports.id = module_identifier;
-
-        callback(null, exports);
-
-      } else if (JSON_FILE_REGEX.test(module_identifier)) {
-
-        var json;
-
-        try {
-          json = JSON.parse(result);
-        } catch(error) {
-          callback(new Error('Error parsing JSON file: ' + module_identifier + '. ' + error));
-          return;
-        }
-
-        callback(null, json);
-
-      } else {
-
-        // If the file is neither JS nor JSON, simply
-        // call the callback with the raw result
-        callback(null, result);
-
+      if (extension === '.js') {
+        loadJavascript(module_identifier, result, callback);
+      } else if (extension === '.json') {
+        loadJson(module_identifier, result, callback);
       }
-
-
 
     });
 
   };
+
+  function splitPath(path) {
+    var results = PATH_SPLITTER_REGEX.exec(path);
+    return {
+      root: results[1],
+      dir: results[2],
+      basename: results[3],
+      ext: results[4]
+    };
+  }
+
+  function readFile(path, callback) {
+    context.postMessage({
+      api: 'fs',
+      method: 'readFile',
+      data: JSON.stringify({
+        path: path,
+        options: {
+          encoding: 'utf8'
+        }
+      })
+    }, callback);
+  }
+
+  function loadJavascript(module_identifier, module_code, callback) {
+    var module = {};
+    var exports;
+
+    try {
+      // eval the module code to extract the module.exports section
+      // TODO: should the module code be eval'ed in strict mode?
+      eval('(function(module, exports){' + module_code + '})(module, module);');
+    } catch(error) {
+      callback(new Error('Error requiring module: ' + module_identifier + '. ' + error));
+      return;
+    }
+
+    exports = module.exports || module;
+
+    callback(null, exports);
+  }
+
+  function loadJson(module_identifier, module_code, callback) {
+    var json;
+
+    try {
+      json = JSON.parse(module_code);
+    } catch(error) {
+      callback(new Error('Error parsing JSON file: ' + module_identifier + '. ' + error));
+      return;
+    }
+
+    callback(null, json);
+  }
 
 })(this);
