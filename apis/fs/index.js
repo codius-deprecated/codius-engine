@@ -3,133 +3,145 @@ var path_module = require('path');
 
 // TODO: make this configurable
 var FILE_SYSTEM_ROOT = __dirname + '/../../contract_filesystem/';
-var HASH_REGEX = /^[0-9a-fA-F]{64}$/;
+var CONTRACT_MODULES_REGEX = /^(?:\/|\.\/)*(?:contract_modules\/)?((?:\\\/|[^\/])*)/i;
 
-// This regex checks for the presence of the "contract_modules/"
-// string at the beginning of the string and captures the module name
-// TODO: support windows?
-var FILEPATH_ESCAPED_CHARACTERS = '\\' + [ '/', '\\', '?', '%', '*', ':', '|', '"', '<', '>', ',', ';', '(', ')', '&', '#', '\s' ].join('\\');
-var CONTRACT_MODULES_STRING = '^(?:\/|\.\/)?(?:contract_modules\/)?((?:[^' + FILEPATH_ESCAPED_CHARACTERS + ']|\\[' + FILEPATH_ESCAPED_CHARACTERS + '])+)';
-var CONTRACT_MODULES_REGEX = new RegExp(CONTRACT_MODULES_STRING);
-
-console.log(CONTRACT_MODULES_STRING);
 
 /**
- *  Read a file using the map specified in the contract
- *  manifest between filenames and hashes.
- *
- *  Note that the contract host MUST verify that the hashes
- *  of the files are correct. This module does not.
+ *  Synchronous read file. See _readFile for details.
  *
  *  @param {Object} manifest
- *  @param {String} data The path or a stringified object containing the path and (optional) options
+ *  @param {String} path
+ *
+ *  @returns {raw results from fs.readFileSync}
+ */
+function readFileSync(manifest, path) {
+  return _readFile(manifest, path, { encoding: 'utf8' });
+}
+
+/**
+ *  Asynchronous read file. See _readFile for details.
+ *
+ *  @param {Object} manifest
+ *  @param {String} data Stringified object with `path` and `options` fields
  *  @param {Function} callback
  *
  *  @callback
  *  @param {Error} error
- *  @param {String or Buffer} file_contents
+ *  @param {results from fs.readFile} result
  */
 function readFile(manifest, data, callback) {
-  // Check if data is a stringified object
   var path;
   var options;
   try {
-    var parameters = JSON.parse(data);
-    path           = parameters.path;
-    options        = parameters.options;
+    var json = JSON.parse(data);
+    path = json.path;
+    options = json.options;
   } catch(error) {
-    // Data is not JSON, assume it is just the path
-    path = data;
+    callback(new Error('Invalid data. Must be stringified JSON object with `path` and `options` fields'));
+    return;
   }
 
-  var file_hash;
+  _readFile(manifest, path, options, callback);
+}
 
-  // Normalize path to handle "." and ".."
-  path = path_module.normalize(path);
 
-  console.log(path);
+/**
+ *  Helper function to read files based on the permissions outlined
+ *  in the manifest, either async or sync. All files are addressed in the
+ *  filesystem by the hash of their contents. However, entities can only
+ *  request files by hash that they have declared explicitly in the
+ *  manifest.files field or files that are declared in submodules.
+ *
+ *  _readFile first checks if the path matches a file declared in the
+ *  manifest.files. If the file is not, it will check if the file path
+ *  begins with `contract_modules/{module}`. If so, it will recursively
+ *  call itself on that module's manifest, which is referenced by
+ *  hash in the manifest.modules section.
+ *
+ *  @param {Object} manifest
+ *  @param {String} path
+ *  @param {Object} [{}] options
+ *  @param {Function} [null -- makes function sync] callback
+ */
+function _readFile(manifest, path, options, callback) {
 
-  // If the file is declared in this manifest, use that file
-  // If not, see if the path refers to a file in one of the contract modules
+  console.log('_readFile', manifest, path)
 
-  // TODO: handle the leading slash better
-  var file_hash = manifest.files[path] ||
-    manifest.files[path.replace('/', '')] ||
-    manifest.files['/' + path] ||
-    manifest.files['./' + path];
-
-  if (file_hash) {
-
-    // Case: file declared in this manifest
-
-    if (!HASH_REGEX.test(file_hash)) {
-      callback(new Error('Invalid hash. Hash must be 32 bytes written in hexadecimal form'));
-      return;
+  // Helper function that reads the file either sync or async
+  function readFileFromFullPath(path, options, callback) {
+    if (typeof options === 'function') {
+      callback = options;
+      options = {};
     }
 
-    // If the file is declared in this manifest, simply read it
-    // and pass the results to the callback
-    // TODO: actually handle differently encoded files here
-    // TODO: make this async
-    var contents;
-    try {
-      contents = String(fs.readFileSync(FILE_SYSTEM_ROOT + file_hash, options));
-    } catch(error) {
+    path = path_module.normalize(path);
+
+    if (typeof callback === 'function') {
+      fs.readFile(path, options, callback);
+      return;
+    } else {
+      return fs.readFileSync(path, options);
+    }
+  }
+
+  // Helper function that handles errors sync or async
+  function handleError(error, callback) {
+    if (typeof callback === 'function') {
       callback(error);
       return;
+    } else {
+      throw error;
     }
-    callback(null, contents);
-    return;
+  }
 
-  } else if (CONTRACT_MODULES_REGEX.test(path)) {
+  path = path_module.normalize(path);
 
-    // Case: path refers to a file within a module
+  // Check if file is explicitly declared in this manifest
+  if (typeof manifest === 'object' && typeof manifest.files === 'object') {
 
-    // Determine the name of the module the path refers to
+    var file_names = Object.keys(manifest.files);
+    for (var f = 0; f < file_names.length; f++) {
+      var file_name = file_names[f];
+
+      if (path === path_module.normalize(file_name)) {
+        return readFileFromFullPath(FILE_SYSTEM_ROOT + manifest.files[file_name], options, callback);
+      }
+    }
+  }
+
+  // If the path is empty we should return the main file declared in the manifest
+  if (['', '.', './', '/'].indexOf(path) !== -1) {
+    var main_file = manifest.main;
+    var main_file_hash = manifest.files[main_file];
+    return readFileFromFullPath(FILE_SYSTEM_ROOT + main_file_hash, options, callback);
+  }
+
+  // Check if the file belongs to a module declared in this manifest
+  // If so, search that module's manifest
+  if (CONTRACT_MODULES_REGEX.test(path) && typeof manifest.modules === 'object') {
     var module_name = CONTRACT_MODULES_REGEX.exec(path)[1];
-    if (!manifest.modules || !manifest.modules.hasOwnProperty(module_name)) {
-      callback(new Error('Module ' + String(module_name) + ' not declared in manifest. All modules must be declared in manifest'));
-      return;
+    var module_manifest_hash = manifest.modules[module_name];
+
+    if (!module_manifest_hash) {
+      return handleError(new Error('Module ' + String(module_name) + ' not declared in manifest. All modules must be declared in manifest'));
     }
 
-    // Load the module manifest
-    var module_manifest_hash = manifest.modules[module_name];
     var module_manifest;
     try {
       module_manifest = fs.readFileSync(FILE_SYSTEM_ROOT + module_manifest_hash, { encoding: 'utf8' });
       module_manifest = JSON.parse(module_manifest);
     } catch(error) {
-      callback(new Error('Cannot load manifest for module: ' + module_name + '. ' + error));
-      return;
+      return handleError(new Error('Cannot load manifest for module: ' + module_name + '. ' + error));
     }
 
-    // Replace the contract_modules/module_name part of the path
-    var path_in_module = path.replace(CONTRACT_MODULES_REGEX, '');
-
-    // If the path that's left is empty the load the module's main file
-    if (path_in_module === '') {
-      if (module_manifest.main) {
-        path_in_module = module_manifest.main;
-      } else {
-        callback(new Error('No main file declared in manifest for module: ' + module_name));
-        return;
-      }
-    }
-
-    // Recursively call readFile on the module
-    setImmediate(function(){
-      readFile(module_manifest, path_in_module, callback);
-    });
-    return;
-
-  } else {
-
-    // Case: unknown path
-
-    callback(new Error('File not found. Cannot locate ' + String(path) + ' in contract files or included modules'));
-    return;
+    return _readFile(module_manifest, path.replace(CONTRACT_MODULES_REGEX, ''), options, callback);
   }
 
+  // If we've gotten here the file was neither in the contract's
+  // manifest, nor in a submodule
+  return handleError(new Error('File not found. Cannot locate ' + String(path) + ' in contract files or included modules'));
 }
 
-module.exports.readFile = readFile;
+
+module.exports.readFile     = readFile;
+module.exports.readFileSync = readFileSync;
