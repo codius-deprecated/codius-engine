@@ -17,111 +17,75 @@ describe('Runtime Library module', function(){
 
   describe('require', function(){
 
-    it('should throw an error if no callback is supplied', function(){
-
-      var context = {};
-      var module = getNewModuleVersion(context);
-
-      expect(module.require.bind(module, 'module_id')).to.throw(/require is asynchronous. Must provide a callback/);
-
-    });
-
-    it('should respond with an error if the identifier is neither a module, nor a javascript or JSON file', function(done){
-      var postMessage = sinon.stub();
-      postMessage.callsArgWith(1, null, '{"test":[1,2],"a":"b","c":{"d":-1}}');
+    it('should respond with an error if the identifier is neither a module, nor a javascript or JSON file', function(){
+      var __readFileSync = sinon.stub();
+      __readFileSync.returns('{"test":[1,2],"a":"b","c":{"d":-1}}');
       var context = {
-        postMessage: postMessage
+        __readFileSync: __readFileSync
       };
       var module = getNewModuleVersion(context);
 
-      module.require('./test.txt', function(error, result){
-        expect(error).to.exist;
-        expect(result).not.to.exist;
-        done();
-      });
+      expect(function(){ module.require('./test.txt'); }).to.throw(/require can only be used to load modules, javascript files, and JSON files/);
     });
 
-    it('should call postMessage with a stringified parameters object', function(done){
+    it('should call __readFileSync with the path', function(){
 
-      var postMessage = sinon.stub();
-      postMessage.callsArg(1);
+      var __readFileSync = sinon.spy();
       var context = {
-        postMessage: postMessage
+        __readFileSync: __readFileSync
       };
       var module = getNewModuleVersion(context);
 
-      module.require('module_id', function(error, result){
-        expect(postMessage).to.have.been.calledWith({
-          api: 'fs',
-          method: 'readFile',
-          data: JSON.stringify({
-            path: 'module_id',
-            options: {
-              encoding: 'utf8'
-            }
-          })
-        });
-        done();
-      });
+      var test_module = module.require('module_id');
+      expect(__readFileSync).to.have.been.calledOnce;
     });
 
-    it('should eval and extract the module.exports from javascript files', function(done){
+    it('should eval and extract the module.exports from javascript files', function(){
 
-      var postMessage = sinon.stub();
-      postMessage.callsArgWith(1, null, 'module.exports={ global_data: "Hello World!" }');
+      var __readFileSync = sinon.stub();
+      __readFileSync.returns('module.exports={ global_data: "Hello World!" }');
       var context = {
-        postMessage: postMessage
+        __readFileSync: __readFileSync
       };
       var module = getNewModuleVersion(context);
 
-      module.require('module_id', function(error, result){
-        expect(error).not.to.exist;
-        expect(result).to.have.property('global_data', 'Hello World!');
-        done();
-      });
-
+      var test_module = module.require('module_id');
+      expect(test_module).to.have.property('global_data', 'Hello World!');
     });
 
-    it('should parse json files', function(done){
-      var postMessage = sinon.stub();
-      postMessage.callsArgWith(1, null, '{"test":[1,2],"a":"b","c":{"d":-1}}');
+    it('should parse json files', function(){
+      var __readFileSync = sinon.stub();
+      __readFileSync.returns('{"test":[1,2],"a":"b","c":{"d":-1}}');
       var context = {
-        postMessage: postMessage
+        __readFileSync: __readFileSync
       };
       var module = getNewModuleVersion(context);
 
-      module.require('test.json', function(error, result){
-        expect(error).not.to.exist;
-        expect(result).to.deep.equal({
-          test: [1, 2],
-          a: 'b',
-          c: { d: -1 }
-        });
-        done();
+      var test_module = module.require('test.json');
+      expect(test_module).to.deep.equal({
+        test: [1, 2],
+        a: 'b',
+        c: { d: -1 }
       });
     });
 
-    // it('should expose a modified version of itself to submodules that translates relative paths to full paths', function(done){
-    //
-    //   var postMessage = sinon.stub();
-    //   postMessage.onFirstCall.callsArgWith(1, null, 'module.exports=(function(){  })');
-    //   postMessage.onSecondCall.callsArgWith(1, null, 'module.exports={ global_data: "Hello World!" }');
-    //   var context = {
-    //     postMessage: postMessage
-    //   };
-    //   var module = getNewModuleVersion(context);
-    //
-    //   module.require('module_id', function(error, result){
-    //     expect(error).not.to.exist;
-    //     expect(result).to.have.property('global_data', 'Hello World!');
-    //     done();
-    //   });
-    //
-    // });
-    //
-    // it('should overwrite itself when javascript files are being evaluated to translate relative paths to full paths', function(done){
-    //
-    // });
+    it('should expose a modified version of itself to submodules that translates relative paths to full paths', function(){
+
+      var __readFileSync = sinon.stub();
+      __readFileSync.onFirstCall().returns('module.exports = require("sub_module");');
+      __readFileSync.onSecondCall().returns('module.exports={ global_data: "Hello World!" }');
+      var context = {
+        __readFileSync: __readFileSync
+      };
+      var module = getNewModuleVersion(context);
+
+      var test_module = module.require('top_module');
+
+      expect(test_module).to.have.property('global_data', 'Hello World!');
+      expect(__readFileSync.secondCall.args).to.deep.equal([ 'top_module/contract_modules/sub_module' ]);
+
+    });
+
 
   });
 

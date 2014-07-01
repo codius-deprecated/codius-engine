@@ -5,7 +5,7 @@
   "main": "test-contract.js",
   "apis": [ "foo", "fs" ],
   "files": {
-    "test-contract.js": "3991300c6723c1e63c278e671dd07b2861522983bf27f460dd32d6f34ca05d3c",
+    "test-contract.js": "9681a63566e0ceb294fd9abaf05cf1cc043abdcf8710de3ab42b71cfc502d808",
     "test-file.txt": "830445e86a0cfafac4e1531002356f384847a11a7456fb8ccb81ab36e37bff28"
   },
   "modules": {

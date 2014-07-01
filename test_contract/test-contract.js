@@ -21,7 +21,5 @@ postMessage({
   console.log('readFile error: ' + error + ' result: ' + result);
 });
 
-require('test_module', function(error, result){
-  console.log('requiring test_module... error: ' + JSON.stringify(error) + ' result: ' + JSON.stringify(result));
-  process.exit();
-});
+var test_module = require('test_module');
+console.log('test_module:' + JSON.stringify(test_module));

@@ -7,48 +7,32 @@
 
   /**
    *  Load a module or javascript or JSON file based on its module_identifier
-   *  and pass the results to the callback. Note that the callback is
-   *  mandatory because this version of require is asynchronous.
+   *  and return the results.
    *
    *  If the module_identifier has no extension or a ".js" extension
-   *  it will be eval'ed and its module.exports will be passed to the callback.
+   *  it will be eval'ed and its module.exports will be returned.
    *  If the module_identifier ends in ".json" the file will be parsed as JSON.
-   *  If the module_identifier does not meet either of the aforementioned
-   *  conditions it will be passed to the callback without any additional parsing.
+   *  Otherwise, it will throw an error.
    *
    *  @param {String} module_identifier
-   *  @param {Function} callback
    *
-   *  @callback
-   *  @param {Error} error
-   *  @param {Object|String} result Type depends on module_identifier
+   *  @returns {Object|String} result Type depends on module_identifier
    */
-  context.require = function(module_identifier, callback) {
-
-    if (typeof callback !== 'function') {
-      throw new Error('require is asynchronous. Must provide a callback');
-    }
+  context.require = function(module_identifier) {
 
     var extension = (splitPath(module_identifier).ext || '.js').toLowerCase();
 
     if (extension !== '.js' && extension !== '.json') {
-      callback(new Error('require can only be used to load modules, javascript files, and JSON files'));
-      return;
+      throw new Error('require can only be used to load modules, javascript files, and JSON files');
     }
 
-    readFile(module_identifier, function(error, result){
-      if (error) {
-        callback(error);
-        return;
-      }
+    var file = __readFileSync(module_identifier);
 
-      if (extension === '.js') {
-        loadJavascript(module_identifier, result, callback);
-      } else if (extension === '.json') {
-        loadJson(module_identifier, result, callback);
-      }
-
-    });
+    if (extension === '.js') {
+      return loadJavascript(module_identifier, file);
+    } else if (extension === '.json') {
+      return loadJson(module_identifier, file);
+    }
 
   };
 
@@ -62,48 +46,40 @@
     };
   }
 
-  function readFile(path, callback) {
-    context.postMessage({
-      api: 'fs',
-      method: 'readFile',
-      data: JSON.stringify({
-        path: path,
-        options: {
-          encoding: 'utf8'
-        }
-      })
-    }, callback);
-  }
-
-  function loadJavascript(module_identifier, module_code, callback) {
+  function loadJavascript(module_identifier, module_code) {
     var module = {};
     var exports;
 
     try {
+
+      // Overwrite the require that will be used by submodules
+      // with a version that prepends this module's module_identifier
+      // and "/contract_modules/" to the submodule's require string
+      // TODO: make sure this still works when submodules have complicated require strings
+      var overwrite_require = '(function(){var original_require = require; context.require = function(id){ return original_require("' + module_identifier + '/contract_modules/" + id);} })()';
+
       // eval the module code to extract the module.exports section
       // TODO: should the module code be eval'ed in strict mode?
-      eval('(function(module, exports){' + module_code + '})(module, module);');
+      eval('(function(module, exports){' + overwrite_require + ';' + module_code + '})(module, module);');
     } catch(error) {
-      callback(new Error('Error requiring module: ' + module_identifier + '. ' + error));
-      return;
+      throw new Error('Error requiring module: ' + module_identifier + '. ' + error);
     }
 
     exports = module.exports || module;
 
-    callback(null, exports);
+    return exports;
   }
 
-  function loadJson(module_identifier, module_code, callback) {
+  function loadJson(module_identifier, module_code) {
     var json;
 
     try {
       json = JSON.parse(module_code);
     } catch(error) {
-      callback(new Error('Error parsing JSON file: ' + module_identifier + '. ' + error));
-      return;
+      throw new Error('Error parsing JSON file: ' + module_identifier + '. ' + error);
     }
 
-    callback(null, json);
+    return json;
   }
 
 })(this);

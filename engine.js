@@ -76,7 +76,8 @@ Engine.prototype.runContract = function(manifest_hash, data, callback) {
   // Create a new runner to run this contract
   var runner = new Runner({
     manifest: manifest,
-    apis: contract_apis
+    apis: contract_apis,
+    manifest_hash: manifest_hash
   });
 
   // Add this runner to the engine's list
