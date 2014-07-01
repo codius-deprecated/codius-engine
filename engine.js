@@ -15,11 +15,12 @@ function Engine(config) {
   // all of the running instances of that contract
   self._contract_instances = {};
 
-  // Automatically register all APIs in the APIS_DIR
-  var apis = fs.readdirSync(APIS_DIR);
-  apis.forEach(function(api_name){
-    self.registerAPI(api_name, APIS_DIR + api_name);
-  });
+  // Register all of the desired APIs
+  var FileSystemReadOnly = require(APIS_DIR + 'fs');
+  self.registerAPI('fs', new FileSystemReadOnly(FILESYSTEM_DIR));
+  // TODO: automatically register APIs in APIS_DIR
+
+  self.registerAPI('foo', APIS_DIR + 'foo');
 }
 
 Engine.prototype.registerAPI = function(name, module) {

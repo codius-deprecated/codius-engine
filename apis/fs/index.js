@@ -1,10 +1,14 @@
 var fs          = require('fs');
 var path_module = require('path');
 
-// TODO: make this configurable
-var FILE_SYSTEM_ROOT = __dirname + '/../../contract_filesystem/';
 var CONTRACT_MODULES_REGEX = /^(?:\/|\.\/)*(?:contract_modules\/)?((?:\\\/|[^\/])*)/i;
 
+module.exports = FileSystemReadOnly;
+
+function FileSystemReadOnly(sandbox_filesystem_path) {
+  var self = this;
+  self._sandbox_filesystem_path = sandbox_filesystem_path;
+}
 
 /**
  *  Synchronous read file. See _readFile for details.
@@ -14,9 +18,10 @@ var CONTRACT_MODULES_REGEX = /^(?:\/|\.\/)*(?:contract_modules\/)?((?:\\\/|[^\/]
  *
  *  @returns {raw results from fs.readFileSync}
  */
-function readFileSync(manifest, path) {
-  return _readFile(manifest, path, { encoding: 'utf8' });
-}
+FileSystemReadOnly.prototype.readFileSync = function(manifest, path) {
+  var self = this;
+  return self._readFile(manifest, path, { encoding: 'utf8' });
+};
 
 /**
  *  Asynchronous read file. See _readFile for details.
@@ -29,7 +34,8 @@ function readFileSync(manifest, path) {
  *  @param {Error} error
  *  @param {results from fs.readFile} result
  */
-function readFile(manifest, data, callback) {
+FileSystemReadOnly.prototype.readFile = function(manifest, data, callback) {
+  var self = this;
   var path;
   var options;
   try {
@@ -41,8 +47,8 @@ function readFile(manifest, data, callback) {
     return;
   }
 
-  _readFile(manifest, path, options, callback);
-}
+  self._readFile(manifest, path, options, callback);
+};
 
 
 /**
@@ -63,9 +69,8 @@ function readFile(manifest, data, callback) {
  *  @param {Object} [{}] options
  *  @param {Function} [null -- makes function sync] callback
  */
-function _readFile(manifest, path, options, callback) {
-
-  console.log('_readFile', manifest, path)
+FileSystemReadOnly.prototype._readFile = function(manifest, path, options, callback) {
+  var self = this;
 
   // Helper function that reads the file either sync or async
   function readFileFromFullPath(path, options, callback) {
@@ -104,7 +109,7 @@ function _readFile(manifest, path, options, callback) {
       var file_name = file_names[f];
 
       if (path === path_module.normalize(file_name)) {
-        return readFileFromFullPath(FILE_SYSTEM_ROOT + manifest.files[file_name], options, callback);
+        return readFileFromFullPath(self._sandbox_filesystem_path + manifest.files[file_name], options, callback);
       }
     }
   }
@@ -113,7 +118,7 @@ function _readFile(manifest, path, options, callback) {
   if (['', '.', './', '/'].indexOf(path) !== -1) {
     var main_file = manifest.main;
     var main_file_hash = manifest.files[main_file];
-    return readFileFromFullPath(FILE_SYSTEM_ROOT + main_file_hash, options, callback);
+    return readFileFromFullPath(self._sandbox_filesystem_path + main_file_hash, options, callback);
   }
 
   // Check if the file belongs to a module declared in this manifest
@@ -128,20 +133,16 @@ function _readFile(manifest, path, options, callback) {
 
     var module_manifest;
     try {
-      module_manifest = fs.readFileSync(FILE_SYSTEM_ROOT + module_manifest_hash, { encoding: 'utf8' });
+      module_manifest = fs.readFileSync(self._sandbox_filesystem_path + module_manifest_hash, { encoding: 'utf8' });
       module_manifest = JSON.parse(module_manifest);
     } catch(error) {
       return handleError(new Error('Cannot load manifest for module: ' + module_name + '. ' + error));
     }
 
-    return _readFile(module_manifest, path.replace(CONTRACT_MODULES_REGEX, ''), options, callback);
+    return self._readFile(module_manifest, path.replace(CONTRACT_MODULES_REGEX, ''), options, callback);
   }
 
   // If we've gotten here the file was neither in the contract's
   // manifest, nor in a submodule
   return handleError(new Error('File not found. Cannot locate ' + String(path) + ' in contract files or included modules'));
-}
-
-
-module.exports.readFile     = readFile;
-module.exports.readFileSync = readFileSync;
+};
