@@ -1,3 +1,1 @@
-module.exports = {
-  some_key: 'some_data'
-};
+module.exports = require('sub_module');
