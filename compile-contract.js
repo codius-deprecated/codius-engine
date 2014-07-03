@@ -14,7 +14,7 @@ if (process.argv && process.argv[1] === __filename && process.argv.length === 4)
   var filesystem_dir = path.resolve(__dirname, process.argv[3]);
 
   var contract_hash = compileModule(contract_dir, filesystem_dir);
-  console.log(contract_hash);
+  console.log('module_hash: ' + contract_hash);
 }
 
 /**
@@ -61,11 +61,14 @@ function compileModule(contract_dir, filesystem_dir) {
   // Set main file
   if (!manifest.main) {
 
-    for (var m = 0; m < MAIN_FILE_NAMES.length; m++) {
-      var main_path = path.join(contract_dir, MAIN_FILE_NAMES[m]);
-      console.log('trying main_path', main_path);
+    // Possibilities include all of the standard ones, plus "{module name}.js"
+    var main_possibilities = MAIN_FILE_NAMES.slice();
+    main_possibilities.push(manifest.name + '.js');
+
+    for (var m = 0; m < main_possibilities.length; m++) {
+      var main_path = path.join(contract_dir, main_possibilities[m]);
       if (fs.existsSync(main_path)) {
-        manifest.main = MAIN_FILE_NAMES[m];
+        manifest.main = main_possibilities[m];
         break;
       }
     }
