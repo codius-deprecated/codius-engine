@@ -47,7 +47,7 @@
   }
 
   function loadJavascript(module_identifier, module_code) {
-    var module = {};
+    var module = { exports: {} };
     var exports;
 
     try {
@@ -68,7 +68,7 @@
 
       // eval the module code to extract the module.exports section
       // TODO: should the module code be eval'ed in strict mode?
-      eval('(function(module, exports, require){' + overwrite_require + ';' + module_code + '})(module, module, require);');
+      eval('(function(module, exports, require){' + overwrite_require + ';' + module_code + ';})(module, module.exports, require);');
     } catch(error) {
       throw new Error('Error requiring module: "' + module_identifier + '" ' + error);
     }
