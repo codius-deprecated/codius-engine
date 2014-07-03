@@ -1,7 +1,17 @@
 var fs          = require('fs');
 var path_module = require('path');
 
-var CONTRACT_MODULES_REGEX = /^(?:\/|\.\/)*(?:contract_modules\/)?((?:\\\/|[^\/])*)/i;
+// Matches if the string starts with "./" or "/"
+var FILE_REGEX             = /^(?:\.?\/)((?:\\\/|[^\/])+)/i;
+
+// Matches if the string starts with any of the following:
+// - "{module}"
+// - "/{module}"
+// - "./{module}"
+// - "contract_modules/{module}"
+// - "/contract_modules/{module}"
+// - "./contract_modules/{module}"
+var CONTRACT_MODULES_REGEX = /^(?:\/|\.\/)*(?:contract_modules\/)?((?:\\\/|[^\/])*)[\/]*/i;
 
 module.exports = FileSystemReadOnly;
 
@@ -72,77 +82,117 @@ FileSystemReadOnly.prototype.readFile = function(manifest, data, callback) {
 FileSystemReadOnly.prototype._readFile = function(manifest, path, options, callback) {
   var self = this;
 
-  // Helper function that reads the file either sync or async
-  function readFileFromFullPath(path, options, callback) {
-    if (typeof options === 'function') {
-      callback = options;
-      options = {};
-    }
-
-    path = path_module.normalize(path);
-
-    if (typeof callback === 'function') {
-      fs.readFile(path, options, callback);
-      return;
-    } else {
-      return fs.readFileSync(path, options);
-    }
-  }
-
-  // Helper function that handles errors sync or async
-  function handleError(error, callback) {
-    if (typeof callback === 'function') {
-      callback(error);
-      return;
-    } else {
-      throw error;
-    }
-  }
-
-  path = path_module.normalize(path);
-
-  // Check if file is explicitly declared in this manifest
-  if (typeof manifest === 'object' && typeof manifest.files === 'object') {
-
-    var file_names = Object.keys(manifest.files);
-    for (var f = 0; f < file_names.length; f++) {
-      var file_name = file_names[f];
-
-      if (path === path_module.normalize(file_name)) {
-        return readFileFromFullPath(self._sandbox_filesystem_path + manifest.files[file_name], options, callback);
-      }
-    }
-  }
-
-  // If the path is empty we should return the main file declared in the manifest
+  // Check if the path refers to the main file in this manifest
   if (['', '.', './', '/'].indexOf(path) !== -1) {
     var main_file = manifest.main;
-    var main_file_hash = manifest.files[main_file];
-    return readFileFromFullPath(self._sandbox_filesystem_path + main_file_hash, options, callback);
-  }
 
-  // Check if the file belongs to a module declared in this manifest
-  // If so, search that module's manifest
-  if (CONTRACT_MODULES_REGEX.test(path) && typeof manifest.modules === 'object') {
-    var module_name = CONTRACT_MODULES_REGEX.exec(path)[1];
-    var module_manifest_hash = manifest.modules[module_name];
-
-    if (!module_manifest_hash) {
-      return handleError(new Error('Module ' + String(module_name) + ' not declared in manifest. All modules must be declared in manifest'));
+    if (!main_file) {
+      return _handleError(new Error('No main file declared in manifest of module: "' + String(manifest.name) + '"'));
     }
 
+    var main_file_hash = manifest.files[main_file];
+    return _readFileFromFullPath(self._sandbox_filesystem_path + main_file_hash, options, callback);
+  }
+
+  // Check if the path refers to a file declared in this manifest
+  var matched_file;
+  if ((matched_file = _matchDeclaredFile(path, manifest.files))) {
+    return _readFileFromFullPath(self._sandbox_filesystem_path + manifest.files[matched_file], options, callback);
+  }
+
+  // Check if the path refers to a module or a file within a module
+  var module_name;
+  if ((module_name = _extractModuleName(path))) {
+
+    var module_manifest_hash = manifest.modules[module_name];
+    if (!module_manifest_hash) {
+      return _handleError(new Error('Module ' + String(module_name) + ' not declared in manifest. All modules must be declared in manifest'));
+    }
+
+    // Load the module's manifest
     var module_manifest;
     try {
       module_manifest = fs.readFileSync(self._sandbox_filesystem_path + module_manifest_hash, { encoding: 'utf8' });
       module_manifest = JSON.parse(module_manifest);
     } catch(error) {
-      return handleError(new Error('Cannot load manifest for module: ' + module_name + '. ' + error));
+      return _handleError(new Error('Cannot load manifest for module: ' + module_name + '. ' + error));
     }
 
-    return self._readFile(module_manifest, path.replace(CONTRACT_MODULES_REGEX, ''), options, callback);
+    var path_within_module = _removeModulePrefix(path);
+
+    // Call _readFile again with the submodule's manifest and the path within that submodule
+    return self._readFile(module_manifest, path_within_module, options, callback);
+
   }
 
   // If we've gotten here the file was neither in the contract's
   // manifest, nor in a submodule
-  return handleError(new Error('File not found. Cannot locate ' + String(path) + ' in contract files or included modules'));
+  return _handleError(new Error('File not found. Cannot locate ' + String(path) + ' in contract files or included modules'));
 };
+
+// Helper function that reads the file either sync or async
+function _readFileFromFullPath(path, options, callback) {
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+
+  path = path_module.normalize(path);
+
+  if (typeof callback === 'function') {
+    fs.readFile(path, options, callback);
+    return;
+  } else {
+    return fs.readFileSync(path, options);
+  }
+}
+
+// Helper function that handles errors sync or async
+function _handleError(error, callback) {
+  if (typeof callback === 'function') {
+    callback(error);
+    return;
+  } else {
+    throw error;
+  }
+}
+
+// Check if the path matches one of the given files
+function _matchDeclaredFile(path, files) {
+  var declared_file_names = Object.keys(files);
+  for (var f = 0; f < declared_file_names.length; f++) {
+    var possibility = declared_file_names[f];
+
+    if (path === possibility) {
+      return possibility;
+    }
+
+    // Check if the path matches the possibility when the "./" and "/" prefix are stripped away
+    // Note that ".js" files can be required without the extension so we need
+    // to check if appending ".js" makes the path match the possibility
+    var stripped_path = (FILE_REGEX.test(path) ? FILE_REGEX.exec(path)[1] : path);
+    var stripped_possibility = (FILE_REGEX.test(possibility) ? FILE_REGEX.exec(possibility)[1] : possibility);
+    if (stripped_path === stripped_possibility ||
+      stripped_path + '.js' === stripped_possibility ||
+      stripped_path + '.JS' === stripped_possibility) {
+
+      return possibility;
+    }
+  }
+  return null;
+}
+
+// If the path starts with a module name or
+// "contract_modules/{module name}" return the module name
+function _extractModuleName(path) {
+  if (CONTRACT_MODULES_REGEX.test(path)) {
+    return CONTRACT_MODULES_REGEX.exec(path)[1];
+  } else {
+    return null;
+  }
+}
+
+// Remove the module name from the beginning of the path
+function _removeModulePrefix(path) {
+  return path.replace(CONTRACT_MODULES_REGEX, '');
+}
