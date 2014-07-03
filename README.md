@@ -1,4 +1,11 @@
+# Contracts Engine
 The engine to run contracts
+
+## Playing with the engine
+
++ `npm install`
++ `npm test` runs the existing tests
++ `node run-test-contract.js` will compile and run the `test_contract` and all of its submodules and files
 
 ## IPC Messaging Format
 
