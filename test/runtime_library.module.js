@@ -52,28 +52,49 @@ describe('Runtime Library module', function(){
       });
     });
 
-    it('should expose a modified version of itself to submodules that translates relative paths to full paths', function(){
+    it('should request the correct paths within submodules', function(){
       var context = { __readFileSync: sinon.stub() };
-      context.__readFileSync.onFirstCall().returns('module.exports = require("sub_module");');
-      context.__readFileSync.onSecondCall().returns('module.exports={ global_data: "Hello World!" }');
-      var module = getNewModuleVersion(context);
-      var test_module = module.require('top_module');
+      context.__readFileSync.withArgs('a').returns('module.exports=require("b")');
 
-      expect(test_module).to.have.property('global_data', 'Hello World!');
-      expect(context.__readFileSync.secondCall.args).to.deep.equal([ 'top_module/contract_modules/sub_module' ]);
+      var module = getNewModuleVersion(context);
+      var a = module.require('a');
+
+      expect(context.__readFileSync).to.be.calledTwice;
+      expect(context.__readFileSync.secondCall.args).to.deep.equal(['a/contract_modules/b']);
     });
 
-    // it('should properly handle ', function(){
-    //   var context = { __readFileSync: sinon.stub(), console: { log: console.log } };
-    //   context.__readFileSync.onFirstCall().returns('require("sub_module");');
-    //   context.__readFileSync.onSecondCall().returns('require("./contract_modules/sub_sub_module/somefile.js");');
-    //   // context.__readFileSync.onThirdCall().returns('module.exports={ global_data: "Hello World!" }');
-    //   var module = getNewModuleVersion(context);
-    //   var test_module = module.require('top_module');
-    //
-    //   expect(context.__readFileSync.thirdCall.args).to.deep.equal([ 'top_module/contract_modules/sub_module/./contract_modules/sub_sub_module/somefile.js' ]);
-    // });
+    it('should request the correct paths within subfolders', function(){
+      var context = { __readFileSync: sinon.stub(), console: { log: console.log } };
+      context.__readFileSync.withArgs('lib/test.js').returns('module.exports=require("./other_test.js")');
 
+      var module = getNewModuleVersion(context);
+      var a = module.require('./lib/test.js');
+
+      expect(context.__readFileSync).to.be.calledTwice;
+      expect(context.__readFileSync.secondCall.args).to.deep.equal(['lib/other_test.js']);
+    });
+
+    it('should request the correct paths for specific files required from submodules', function(){
+      var context = { __readFileSync: sinon.stub(), console: { log: console.log } };
+      context.__readFileSync.withArgs('a').returns('module.exports=require("./contract_modules/b/lib/test.js")');
+
+      var module = getNewModuleVersion(context);
+      var a = module.require('a');
+
+      expect(context.__readFileSync).to.be.calledTwice;
+      expect(context.__readFileSync.secondCall.args).to.deep.equal(['a/contract_modules/b/lib/test.js']);
+    });
+
+    it('should request the correct paths when requesting a specific sub-sub-module', function(){
+      var context = { __readFileSync: sinon.stub() };
+      context.__readFileSync.withArgs('a/contract_modules/b').returns('module.exports=require("./lib/test.js")');
+
+      var module = getNewModuleVersion(context);
+      var a = module.require('a/contract_modules/b');
+
+      expect(context.__readFileSync).to.be.calledTwice;
+      expect(context.__readFileSync.secondCall.args).to.deep.equal(['a/contract_modules/b/lib/test.js']);
+    });
 
   });
 
