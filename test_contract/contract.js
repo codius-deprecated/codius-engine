@@ -22,4 +22,9 @@ postMessage({
 });
 
 var test_module = require('test_module');
-console.log('test_module:' + JSON.stringify(test_module));
+console.log('test_module: ' + JSON.stringify(test_module));
+
+var q = require('q');
+if (typeof q === 'function') {
+  console.log('loaded q');
+}
