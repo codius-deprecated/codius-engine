@@ -55,14 +55,22 @@
       // Overwrite the require that will be used by submodules
       // with a version that prepends this module's module_identifier
       // and "/contract_modules/" to the submodule's require string
-      // TODO: make sure this still works when submodules have complicated require strings
-      var overwrite_require = '(function(){var original_require = require; context.require = function(id){ return original_require("' + module_identifier + '/contract_modules/" + id);} })()';
+      var overwrite_require = '(function(){' +
+        'var original_require = require; ' +
+        'require = function(id){ ' +
+          'var append_string = "' + module_identifier + '/";' +
+          'if (!/^(\\.\\/|\\/)/.test(id)) { ' +
+            'append_string += "contract_modules/";' +
+          '}' +
+          'return original_require(append_string + id);' +
+        '}' +
+      '})()';
 
       // eval the module code to extract the module.exports section
       // TODO: should the module code be eval'ed in strict mode?
-      eval('(function(module, exports){' + overwrite_require + ';' + module_code + '})(module, module);');
+      eval('(function(module, exports, require){' + overwrite_require + ';' + module_code + '})(module, module, require);');
     } catch(error) {
-      throw new Error('Error requiring module: ' + module_identifier + '. ' + error);
+      throw new Error('Error requiring module: "' + module_identifier + '" ' + error);
     }
 
     exports = module.exports || module;
@@ -76,7 +84,7 @@
     try {
       json = JSON.parse(module_code);
     } catch(error) {
-      throw new Error('Error parsing JSON file: ' + module_identifier + '. ' + error);
+      throw new Error('Error parsing JSON file: "' + module_identifier + '" ' + error);
     }
 
     return json;
