@@ -4,7 +4,7 @@
   "description": "Codius smart oracle runtime engine for Node.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/emschwartz/sandbox.git"
+    "url": "git://github.com/codius/engine.git"
   },
   "scripts": {
     "test": "./node_modules/.bin/istanbul test --preload-sources ./node_modules/.bin/_mocha -- --reporter spec test/*.js"
