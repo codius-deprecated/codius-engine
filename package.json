@@ -1,6 +1,7 @@
 {
-  "name": "contracts-engine",
+  "name": "codius-engine",
   "version": "0.0.1",
+  "description": "Codius smart oracle runtime engine for Node.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/emschwartz/sandbox.git"
@@ -18,5 +19,6 @@
     "mocha": "^1.20.1",
     "sinon": "^1.10.2",
     "sinon-chai": "^2.5.0"
-  }
+  },
+  "license": "ISC"
 }
