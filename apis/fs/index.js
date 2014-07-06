@@ -13,7 +13,9 @@ var FILE_REGEX             = /^(?:\.?\/)((?:\\\/|[^\/])+)/i;
 // - "./contract_modules/{module}"
 var CONTRACT_MODULES_REGEX = /^(?:\/|\.\/)*(?:contract_modules\/)?((?:\\\/|[^\/])*)[\/]*/i;
 
-module.exports = FileSystemReadOnly;
+exports.init = function (engine, config) {
+  engine.registerAPI('fs', new FileSystemReadOnly(config.contractsFilesystemPath));
+};
 
 function FileSystemReadOnly(sandbox_filesystem_path) {
   var self = this;
