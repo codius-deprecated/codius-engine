@@ -8,10 +8,10 @@ var FILE_REGEX             = /^(?:\.?\/)((?:\\\/|[^\/])+)/i;
 // - "{module}"
 // - "/{module}"
 // - "./{module}"
-// - "contract_modules/{module}"
-// - "/contract_modules/{module}"
-// - "./contract_modules/{module}"
-var CONTRACT_MODULES_REGEX = /^(?:\/|\.\/)*(?:contract_modules\/)?((?:\\\/|[^\/])*)[\/]*/i;
+// - "codius_modules/{module}"
+// - "/codius_modules/{module}"
+// - "./codius_modules/{module}"
+var CONTRACT_MODULES_REGEX = /^(?:\/|\.\/)*(?:codius_modules\/)?((?:\\\/|[^\/])*)[\/]*/i;
 
 exports.init = function (engine, config) {
   engine.registerAPI('fs', new FileSystemReadOnly(config.contractsFilesystemPath));
@@ -72,7 +72,7 @@ FileSystemReadOnly.prototype.readFile = function(manifest, data, callback) {
  *
  *  _readFile first checks if the path matches a file declared in the
  *  manifest.files. If the file is not, it will check if the file path
- *  begins with `contract_modules/{module}`. If so, it will recursively
+ *  begins with `codius_modules/{module}`. If so, it will recursively
  *  call itself on that module's manifest, which is referenced by
  *  hash in the manifest.modules section.
  *
@@ -185,7 +185,7 @@ function _matchDeclaredFile(path, files) {
 }
 
 // If the path starts with a module name or
-// "contract_modules/{module name}" return the module name
+// "codius_modules/{module name}" return the module name
 function _extractModuleName(path) {
   if (CONTRACT_MODULES_REGEX.test(path)) {
     return CONTRACT_MODULES_REGEX.exec(path)[1];

@@ -70,13 +70,13 @@
 
       // Overwrite the require that will be used by submodules
       // with a version that prepends this module's module_identifier
-      // and "/contract_modules/" to the submodule's require string
+      // and "/codius_modules/" to the submodule's require string
       var overwrite_require = '(function(){' +
         'var original_require = require; ' +
         'require = function(id){ ' +
           'var append_string = "' + dir_for_submodules + '";' +
           'if (!/^(\\.\\/|\\/)/.test(id)) { ' +
-            'append_string += "contract_modules/";' +
+            'append_string += "codius_modules/";' +
           '}' +
           'return original_require(append_string + id);' +
         '}' +

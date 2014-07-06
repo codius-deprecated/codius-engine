@@ -60,7 +60,7 @@ describe('Runtime Library module', function(){
       var a = module.require('a');
 
       expect(context.__readFileSync).to.be.calledTwice;
-      expect(context.__readFileSync.secondCall.args).to.deep.equal(['a/contract_modules/b']);
+      expect(context.__readFileSync.secondCall.args).to.deep.equal(['a/codius_modules/b']);
     });
 
     it('should request the correct paths within subfolders', function(){
@@ -76,24 +76,24 @@ describe('Runtime Library module', function(){
 
     it('should request the correct paths for specific files required from submodules', function(){
       var context = { __readFileSync: sinon.stub(), console: { log: console.log } };
-      context.__readFileSync.withArgs('a').returns('module.exports=require("./contract_modules/b/lib/test.js")');
+      context.__readFileSync.withArgs('a').returns('module.exports=require("./codius_modules/b/lib/test.js")');
 
       var module = getNewModuleVersion(context);
       var a = module.require('a');
 
       expect(context.__readFileSync).to.be.calledTwice;
-      expect(context.__readFileSync.secondCall.args).to.deep.equal(['a/contract_modules/b/lib/test.js']);
+      expect(context.__readFileSync.secondCall.args).to.deep.equal(['a/codius_modules/b/lib/test.js']);
     });
 
     it('should request the correct paths when requesting a specific sub-sub-module', function(){
       var context = { __readFileSync: sinon.stub() };
-      context.__readFileSync.withArgs('a/contract_modules/b').returns('module.exports=require("./lib/test.js")');
+      context.__readFileSync.withArgs('a/codius_modules/b').returns('module.exports=require("./lib/test.js")');
 
       var module = getNewModuleVersion(context);
-      var a = module.require('a/contract_modules/b');
+      var a = module.require('a/codius_modules/b');
 
       expect(context.__readFileSync).to.be.calledTwice;
-      expect(context.__readFileSync.secondCall.args).to.deep.equal(['a/contract_modules/b/lib/test.js']);
+      expect(context.__readFileSync.secondCall.args).to.deep.equal(['a/codius_modules/b/lib/test.js']);
     });
 
   });
