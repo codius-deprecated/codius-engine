@@ -14,7 +14,7 @@ var FILE_REGEX             = /^(?:\.?\/)((?:\\\/|[^\/])+)/i;
 var CONTRACT_MODULES_REGEX = /^(?:\/|\.\/)*(?:codius_modules\/)?((?:\\\/|[^\/])*)[\/]*/i;
 
 exports.init = function (engine, config) {
-  engine.registerAPI('fs', new FileSystemReadOnly(config.contractsFilesystemPath));
+  engine.registerAPI('fs', new FileSystemReadOnly(config.contracts_filesystem_path));
 };
 
 function FileSystemReadOnly(sandbox_filesystem_path) {
