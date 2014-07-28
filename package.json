@@ -12,8 +12,9 @@
   },
   "dependencies": {
     "async": "^0.9.0",
-    "sandbox": "https://github.com/emschwartz/sandbox/tarball/readFileSync",
-    "extend": "~1.3.0"
+    "extend": "~1.3.0",
+    "nconf": "^0.6.9",
+    "sandbox": "https://github.com/emschwartz/sandbox/tarball/readFileSync"
   },
   "devDependencies": {
     "chai": "^1.9.1",

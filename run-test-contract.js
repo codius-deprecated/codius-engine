@@ -10,7 +10,7 @@ var CONTRACT_DIR = __dirname + '/test_contract/';
 var FILESYSTEM_DIR = __dirname + '/contract_filesystem/';
 
 var config = new Config();
-config.contractsFilesystemPath = FILESYSTEM_DIR;
+config.contracts_filesystem_path = FILESYSTEM_DIR;
 
 var compiler = new Compiler(config);
 var fileManager = new FileManager(config);
