@@ -8,7 +8,8 @@ var fs = require('fs');
  */
 var components = [
   'callback-handler.js',
-  'module.js'
+  'module.js',
+  'secrets.js'
 ];
 var runtime_library = ';';
 components.forEach(function(component_filename){
