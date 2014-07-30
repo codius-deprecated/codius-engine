@@ -6,7 +6,10 @@ var fs = require('fs');
  *  that can be prepended to the contract code to be run
  *  inside of the sandbox.
  */
-var components = fs.readdirSync(__dirname);
+var components = [
+  'callback-handler.js',
+  'module.js'
+];
 var runtime_library = ';';
 components.forEach(function(component_filename){
   if (__dirname + '/' + component_filename !== __filename) {
