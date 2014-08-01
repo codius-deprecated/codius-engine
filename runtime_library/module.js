@@ -176,6 +176,16 @@
         continue;
       }
     }
+
+    // Look for the module higher up in the tree as well
+    var target = splitPath(path).basename;
+    var path_one_level_up = truncateToSecondToLastInstance(path, CODIUS_MODULE_REGEX);
+    if (target && path_one_level_up && path_one_level_up !== path) {
+      var module_name = splitPath(path_one_level_up).basename;
+      var path_without_module_name = path_one_level_up.slice(0, path_one_level_up.length - (module_name.length + 1));
+      return tryModule(path_without_module_name + '/' + target);
+    }
+
     return null;
   }
 
@@ -237,6 +247,17 @@
     var end_index_of_last_instance = string.lastIndexOf(exec_result[1]) + exec_result[1].length;
     var to_last_result = string.slice(0, end_index_of_last_instance);
     return to_last_result;
+  }
+
+  // Slice the given string to the second to last instance of the regex (inclusive)
+  function truncateToSecondToLastInstance(string, regex) {
+    var regex = new RegExp(regex.source, 'ig');
+    var exec_result = execToLastInstance(string, regex);
+    if (!exec_result) {
+      return string;
+    }
+    var start_index_of_last_instance = exec_result.index;
+    return truncateToLastInstance(string.slice(0, start_index_of_last_instance), regex);
   }
 
   // Keep applying the regex to the string to find the last instance of it
