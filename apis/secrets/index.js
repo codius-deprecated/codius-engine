@@ -67,7 +67,7 @@ SecretGenerator.prototype.getKeypair = function(manifest, data, callback) {
     try {
 
       keypair = crypto.deriveKeypair(self._secrets.CONTRACT_KEYPAIR_GENERATOR_ec_secp256k1, 'CONTRACT_KEYPAIR_ec_secp256k1_' + manifest_hash, 'ec_secp256k1');
-      // keypair.signature = crypto.sign('ec_secp256k1', self._secrets.MASTER_KEYPAIR_ec_secp256k1, keypair.public);
+      keypair.signature = crypto.sign(self._secrets.MASTER_KEYPAIR_ec_secp256k1.private, keypair.public);
 
     } catch (error) {
       callback(new Error('Error deriving contract keypair: ' + error));
