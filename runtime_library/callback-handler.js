@@ -32,6 +32,7 @@
     self._onmessage_original   = context.onmessage;
 
     self._callback_array = [];
+    self._active_callbacks_count = 0;
   }
 
   /**
@@ -53,6 +54,7 @@
 
       // Add the callback to the array
       self._callback_array.push(callback);
+      self._active_callbacks_count += 1;
       var callback_index = self._callback_array.length - 1;
 
       // Add the callback_index to the message body
@@ -122,6 +124,7 @@
 
     // Set that callback to null so it won't be called again
     self._callback_array[callback_index] = null;
+    self._active_callbacks_count -= 1;
 
     self.checkFinished();
   };
@@ -133,14 +136,9 @@
   CallbackHandler.prototype.checkFinished = function(){
     var self = this;
 
-    for (var c = 0; c < self._callback_array.length; c++) {
-      if (self._callback_array[c]) {
-        return;
-      }
+    if (self._active_callbacks_count === 0) {
+      context.onmessage = null;
     }
-
-    // If we've gotten here then there are no more callbacks
-    context.onmessage = null;
   };
 
   addCallbacksToIPCMessaging();
