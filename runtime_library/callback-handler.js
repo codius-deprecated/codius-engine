@@ -32,6 +32,7 @@
     self._onmessage_original   = context.onmessage;
 
     self._callback_array = [];
+    self._active_callbacks_count = 0;
   }
 
   /**
@@ -53,6 +54,7 @@
 
       // Add the callback to the array
       self._callback_array.push(callback);
+      self._active_callbacks_count += 1;
       var callback_index = self._callback_array.length - 1;
 
       // Add the callback_index to the message body
@@ -119,6 +121,24 @@
     // Call the appropriate callback with the error
     // and results passed in with the message
     self._callback_array[callback_index](message_body.error, message_body.result);
+
+    // Set that callback to null so it won't be called again
+    self._callback_array[callback_index] = null;
+    self._active_callbacks_count -= 1;
+
+    self.checkFinished();
+  };
+
+  /**
+   *  If there are no outstanding callbacks, set context.onmessage 
+   *  to null so the sandbox knows the process is finished
+   */
+  CallbackHandler.prototype.checkFinished = function(){
+    var self = this;
+
+    if (self._active_callbacks_count === 0) {
+      context.onmessage = null;
+    }
   };
 
   addCallbacksToIPCMessaging();
