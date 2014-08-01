@@ -89,3 +89,20 @@ secrets.getKeypair('ec_secp256k1', function(error, keypair){
 
 
 ```
+
+## Require
+
+`require` can be used in the sandbox to load modules, javascript files, and JSON files.
+
+The following table explains how `require` will interpret paths:
+
+| Given path  | File returned  |
+|---|---|
+| `module_name`  | `main` file identified in `codius_modules/module_name/codius-manifest.json`  |
+| `./file.js` or `./file`  | `./file.js` or `file.js` listed in the `files` of the current context's manifest  |
+| `./file.json` | `./file.json` or `file.json` listed in the `files` of the current context's manifest |
+| `./codius_modules/module_name/file.js` or `module_name/file.js`  | `./file.js` or `file.js` listed in the `files` of `module_name`'s manifest  |
+| `./directory`  | `main` file identified in `./directory/codius-manifest.json` or `./directory/package.json`, or `./directory/index.js`  |
+| `../file.js`  | `./file.js` or `file.js` from the parent directory or parent module of the current context  |
+
+\* Note that absolute paths (e.g. `/codius_modules/module_name/file.js`) are not currently supported.
