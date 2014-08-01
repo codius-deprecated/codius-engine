@@ -119,6 +119,28 @@
     // Call the appropriate callback with the error
     // and results passed in with the message
     self._callback_array[callback_index](message_body.error, message_body.result);
+
+    // Set that callback to null so it won't be called again
+    self._callback_array[callback_index] = null;
+
+    self.checkFinished();
+  };
+
+  /**
+   *  If there are no outstanding callbacks, set context.onmessage 
+   *  to null so the sandbox knows the process is finished
+   */
+  CallbackHandler.prototype.checkFinished = function(){
+    var self = this;
+
+    for (var c = 0; c < self._callback_array.length; c++) {
+      if (self._callback_array[c]) {
+        return;
+      }
+    }
+
+    // If we've gotten here then there are no more callbacks
+    context.onmessage = null;
   };
 
   addCallbacksToIPCMessaging();
