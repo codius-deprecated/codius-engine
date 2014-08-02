@@ -15,9 +15,8 @@
   function addCallbacksToIPCMessaging() {
     var callback_handler = new CallbackHandler(context);
 
-    // Overwrite global methods
+    // Overwrite global postMessage
     context.postMessage = callback_handler.postMessageWithCallback.bind(callback_handler);
-    context.onmessage   = callback_handler.onmessageCallbackHandler.bind(callback_handler);
   }
 
   /**
@@ -70,6 +69,9 @@
     }
 
     var message_string = JSON.stringify(message);
+
+    // Set the global onmessage to catch the response
+    context.onmessage = self.onmessageCallbackHandler.bind(self);
 
     self._postMessage_original(message_string);
   };
