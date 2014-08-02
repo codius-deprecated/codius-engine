@@ -1,44 +1,40 @@
+exports.init = function (engine, config) {
+  engine.registerAPI('fs', function(manifest){
+    return new FileSystemReadOnly(config.contractsFilesystemPath, manifest);
+  });
+};
+
+
 var fs          = require('fs');
 var path_module = require('path');
 
-// Matches if the string starts with "./" or "/"
-var FILE_REGEX             = /^(?:\.?\/)((?:\\\/|[^\/])+)/i;
+var CODIUS_MODULES_REGEX = /^(?:(?:\.\/|\/)?codius_modules\/)((?:\\\/|[^\/])+)(?:\/)?/i;
+var CODIUS_MANIFEST_REGEX = /^((\.\/|\/)?codius-manifest.json)/i;
 
-// Matches if the string starts with any of the following:
-// - "{module}"
-// - "/{module}"
-// - "./{module}"
-// - "codius_modules/{module}"
-// - "/codius_modules/{module}"
-// - "./codius_modules/{module}"
-var CONTRACT_MODULES_REGEX = /^(?:\/|\.\/)*(?:codius_modules\/)?((?:\\\/|[^\/])*)[\/]*/i;
+// module.exports = FileSystemReadOnly;
 
-exports.init = function (engine, config) {
-  engine.registerAPI('fs', new FileSystemReadOnly(config.contractsFilesystemPath));
-};
-
-function FileSystemReadOnly(sandbox_filesystem_path) {
+function FileSystemReadOnly(sandbox_filesystem_path, manifest) {
   var self = this;
+
+  self._manifest = manifest;
   self._sandbox_filesystem_path = sandbox_filesystem_path;
 }
 
 /**
  *  Synchronous read file. See _readFile for details.
  *
- *  @param {Object} manifest
  *  @param {String} path
  *
  *  @returns {raw results from fs.readFileSync}
  */
-FileSystemReadOnly.prototype.readFileSync = function(manifest, path) {
+FileSystemReadOnly.prototype.readFileSync = function(path) {
   var self = this;
-  return self._readFile(manifest, path, { encoding: 'utf8' });
+  return self._readFile(self._manifest, path, { encoding: 'utf8' });
 };
 
 /**
  *  Asynchronous read file. See _readFile for details.
  *
- *  @param {Object} manifest
  *  @param {String} data Stringified object with `path` and `options` fields
  *  @param {Function} callback
  *
@@ -46,7 +42,7 @@ FileSystemReadOnly.prototype.readFileSync = function(manifest, path) {
  *  @param {Error} error
  *  @param {results from fs.readFile} result
  */
-FileSystemReadOnly.prototype.readFile = function(manifest, data, callback) {
+FileSystemReadOnly.prototype.readFile = function(data, callback) {
   var self = this;
   var path;
   var options;
@@ -59,7 +55,7 @@ FileSystemReadOnly.prototype.readFile = function(manifest, data, callback) {
     return;
   }
 
-  self._readFile(manifest, path, options, callback);
+  self._readFile(self._manifest, path, options, callback);
 };
 
 
@@ -70,13 +66,6 @@ FileSystemReadOnly.prototype.readFile = function(manifest, data, callback) {
  *  request files by hash that they have declared explicitly in the
  *  manifest.files field or files that are declared in submodules.
  *
- *  _readFile first checks if the path matches a file declared in the
- *  manifest.files. If the file is not, it will check if the file path
- *  begins with `codius_modules/{module}`. If so, it will recursively
- *  call itself on that module's manifest, which is referenced by
- *  hash in the manifest.modules section.
- *
- *  @param {Object} manifest
  *  @param {String} path
  *  @param {Object} [{}] options
  *  @param {Function} [null -- makes function sync] callback
@@ -84,53 +73,67 @@ FileSystemReadOnly.prototype.readFile = function(manifest, data, callback) {
 FileSystemReadOnly.prototype._readFile = function(manifest, path, options, callback) {
   var self = this;
 
-  // Check if the path refers to the main file in this manifest
-  if (['', '.', './', '/'].indexOf(path) !== -1) {
-    var main_file = manifest.main;
+  path = path_module.normalize(path);
 
-    if (!main_file) {
-      return _handleError(new Error('No main file declared in manifest of module: "' + String(manifest.name) + '"'));
+  if (CODIUS_MANIFEST_REGEX.test(path)) {
+    // Case: the file requested is this manifest
+
+    var manifest_string = JSON.stringify(manifest);
+    if (callback) {
+      callback(null, manifest_string);
+      return;
+    } else {
+      return manifest_string;
     }
 
-    var main_file_hash = manifest.files[main_file];
-    return _readFileFromFullPath(self._sandbox_filesystem_path + main_file_hash, options, callback);
-  }
+  } else if (CODIUS_MODULES_REGEX.test(path)) {
+    // Case: the file requested is in a submodule
 
-  // Check if the path refers to a file declared in this manifest
-  var matched_file;
-  if ((matched_file = _matchDeclaredFile(path, manifest.files))) {
-    return _readFileFromFullPath(self._sandbox_filesystem_path + manifest.files[matched_file], options, callback);
-  }
+    var module_name = CODIUS_MODULES_REGEX.exec(path)[1];
+    if (!manifest.modules[module_name]) {
+      return _handleError(new Error('Module "' + String(module_name) + '" not declared in manifest. All modules must be declared in manifest.'), callback);
+    }
 
-  // Check if the path refers to a module or a file within a module
-  var module_name;
-  if ((module_name = _extractModuleName(path))) {
-
+    // Load module manifest
     var module_manifest_hash = manifest.modules[module_name];
-    if (!module_manifest_hash) {
-      return _handleError(new Error('Module ' + String(module_name) + ' not declared in manifest. All modules must be declared in manifest'));
-    }
-
-    // Load the module's manifest
     var module_manifest;
     try {
       module_manifest = fs.readFileSync(self._sandbox_filesystem_path + module_manifest_hash, { encoding: 'utf8' });
       module_manifest = JSON.parse(module_manifest);
     } catch(error) {
-      return _handleError(new Error('Cannot load manifest for module: ' + module_name + '. ' + error));
+      return _handleError(new Error('Cannot load manifest for module: "' + String(module_name) + '". ' + error));
     }
 
-    var path_within_module = _removeModulePrefix(path);
+    // Recurse
+    var rest_of_path = path.replace(CODIUS_MODULES_REGEX, '');
+    return self._readFile(module_manifest, rest_of_path, options, callback);
 
-    // Call _readFile again with the submodule's manifest and the path within that submodule
-    return self._readFile(module_manifest, path_within_module, options, callback);
+  } else {
+    // Case: we're looking for a file declared in this manifest
 
+    var normalized_path = path_module.normalize(path);
+
+    var declared_files = Object.keys(manifest.files);
+    for (var f = 0; f < declared_files.length; f++) {
+      if (normalized_path === path_module.normalize(declared_files[f])) {
+        return _readFileFromFullPath(self._sandbox_filesystem_path + manifest.files[declared_files[f]], options, callback)
+      }
+    }
   }
 
-  // If we've gotten here the file was neither in the contract's
-  // manifest, nor in a submodule
-  return _handleError(new Error('File not found. Cannot locate ' + String(path) + ' in contract files or included modules'));
+  // If we get here that means we couldn't find the file
+  return _handleError(new Error('File or module: "' + String(path) + '" not found. Cannot locate it in contract files or included modules.'));
 };
+
+// Helper function that handles errors sync or async
+function _handleError(error, callback) {
+  if (typeof callback === 'function') {
+    callback(error);
+    return;
+  } else {
+    throw error;
+  }
+}
 
 // Helper function that reads the file either sync or async
 function _readFileFromFullPath(path, options, callback) {
@@ -149,52 +152,3 @@ function _readFileFromFullPath(path, options, callback) {
   }
 }
 
-// Helper function that handles errors sync or async
-function _handleError(error, callback) {
-  if (typeof callback === 'function') {
-    callback(error);
-    return;
-  } else {
-    throw error;
-  }
-}
-
-// Check if the path matches one of the given files
-function _matchDeclaredFile(path, files) {
-  var declared_file_names = Object.keys(files);
-  for (var f = 0; f < declared_file_names.length; f++) {
-    var possibility = declared_file_names[f];
-
-    if (path === possibility) {
-      return possibility;
-    }
-
-    // Check if the path matches the possibility when the "./" and "/" prefix are stripped away
-    // Note that ".js" files can be required without the extension so we need
-    // to check if appending ".js" makes the path match the possibility
-    var stripped_path = (FILE_REGEX.test(path) ? FILE_REGEX.exec(path)[1] : path);
-    var stripped_possibility = (FILE_REGEX.test(possibility) ? FILE_REGEX.exec(possibility)[1] : possibility);
-    if (stripped_path === stripped_possibility ||
-      stripped_path + '.js' === stripped_possibility ||
-      stripped_path + '.JS' === stripped_possibility) {
-
-      return possibility;
-    }
-  }
-  return null;
-}
-
-// If the path starts with a module name or
-// "codius_modules/{module name}" return the module name
-function _extractModuleName(path) {
-  if (CONTRACT_MODULES_REGEX.test(path)) {
-    return CONTRACT_MODULES_REGEX.exec(path)[1];
-  } else {
-    return null;
-  }
-}
-
-// Remove the module name from the beginning of the path
-function _removeModulePrefix(path) {
-  return path.replace(CONTRACT_MODULES_REGEX, '');
-}

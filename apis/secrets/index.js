@@ -1,15 +1,19 @@
 var crypto = require('../../lib/crypto');
 
 exports.init = function(engine, config, secrets) {
-  engine.registerAPI('secrets', new SecretGenerator(secrets));
+  engine.registerAPI('secrets', function(manifest){
+    return new SecretGenerator(manifest, secrets);
+  });
 };
 
 /**
  *  Class used to deterministically generate unique contract secrets
  */
-function SecretGenerator(engine_secrets) {
+function SecretGenerator(manifest, secrets) {
   var self = this;
-  self._secrets = engine_secrets;
+
+  self._manifest = manifest;
+  self._secrets = secrets;
 }
 
 /**
@@ -23,10 +27,10 @@ function SecretGenerator(engine_secrets) {
  *  @param {String} secret Hex-encoded 512-bit secret
  *
  */
-SecretGenerator.prototype.getSecret = function(manifest, data, callback) {
+SecretGenerator.prototype.getSecret = function(data, callback) {
   var self = this;
 
-  var manifest_hash = manifest.manifest_hash;
+  var manifest_hash = self._manifest.manifest_hash;
   if (!manifest_hash) {
     throw new Error('SecretGenerator.getSecret not given manifest_hash, meaning it cannot derive unique contract secrets');
   }
@@ -45,7 +49,6 @@ SecretGenerator.prototype.getSecret = function(manifest, data, callback) {
 /**
  *  Get a deterministic keypair that is unique to the contract.
  *
- *  @param {String} manifest.manifest_hash
  *  @param {Function} callback
  *
  *  @callback
@@ -53,10 +56,10 @@ SecretGenerator.prototype.getSecret = function(manifest, data, callback) {
  *  @param {Object} keypair Object with "public" and "private" fields that are hex-encoded strings
  *
  */
-SecretGenerator.prototype.getKeypair = function(manifest, data, callback) {
+SecretGenerator.prototype.getKeypair = function(data, callback) {
   var self = this;
 
-  var manifest_hash = manifest.manifest_hash;
+  var manifest_hash = self._manifest.manifest_hash;
   if (!manifest_hash) {
     throw new Error('SecretGenerator.getKeypair not given manifest_hash, meaning it cannot derive unique contract keypairs');
   }
