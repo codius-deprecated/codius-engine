@@ -34,16 +34,16 @@ describe('Runtime Library module', function(){
 
     it('should call __readFileSync for plain file names', function(){
       var context = { __readFileSync: sinon.stub() , console: { log: console.log } };
-      context.__readFileSync.withArgs('file.js').returns('module.exports={ global_data: "Hello World!" }');
+      context.__readFileSync.withArgs('./file.js').returns('module.exports={ global_data: "Hello World!" }');
       var module = getNewModuleVersion(context);
       var file = module.require('./file.js');
       expect(context.__readFileSync).to.have.been.calledOnce;
-      expect(context.__readFileSync.firstCall.args).to.deep.equal(['file.js']);
+      expect(context.__readFileSync.firstCall.args).to.deep.equal(['./file.js']);
     });
 
     it('should eval and extract the module.exports from javascript files', function(){
       var context = { __readFileSync: sinon.stub() , console: { log: console.log } };
-      context.__readFileSync.withArgs('file.js').returns('module.exports={ global_data: "Hello World!" }');
+      context.__readFileSync.withArgs('./file.js').returns('module.exports={ global_data: "Hello World!" }');
       var module = getNewModuleVersion(context);
       var test_module = module.require('./file.js');
       expect(context.__readFileSync).to.have.been.calledOnce;
@@ -78,13 +78,13 @@ describe('Runtime Library module', function(){
 
     it('should request the correct paths within subfolders', function(){
       var context = { __readFileSync: sinon.stub(), console: { log: console.log } };
-      context.__readFileSync.withArgs('lib/test.js').returns('module.exports=require("./other_test.js")');
+      context.__readFileSync.withArgs('./lib/test.js').returns('module.exports=require("./other_test.js")');
 
       var module = getNewModuleVersion(context);
       var a = module.require('./lib/test.js');
 
       expect(context.__readFileSync).to.be.calledTwice;
-      expect(context.__readFileSync.secondCall.args).to.deep.equal(['lib/other_test.js']);
+      expect(context.__readFileSync.secondCall.args).to.deep.equal(['./lib/other_test.js']);
     });
 
     it('should request the correct paths for specific files required from submodules', function(){
@@ -133,6 +133,19 @@ describe('Runtime Library module', function(){
       var a = module.require('a');
 
       expect(context.__readFileSync).to.have.been.calledWith('codius_modules/a/lib/index.js');
+    });
+
+    it('should cache javascript file exports so they are not overwritten on subsequent require calls', function(){
+      var context = { __readFileSync: sinon.stub(), console: { log: console.log } };
+      context.__readFileSync.withArgs('./a.js').returns('module.exports={a: 1}');
+      context.__readFileSync.withArgs('./b.js').returns('var a = require("./a"); a.b = 2;');
+
+      var module = getNewModuleVersion(context);
+      var a = module.require('./a');
+      module.require('./b');
+
+      expect(a).to.haveOwnProperty('b');
+      expect(a.b).to.equal(2);
     });
 
   });

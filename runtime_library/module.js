@@ -28,6 +28,9 @@
   // File extensions that can be inferred if none is explicitly declared
   var INFERRED_FILE_EXTENSIONS = ['.js'];
 
+  // Cache the exports of js files so they are not loaded multiple times
+  var js_file_cache = {};
+
   /**
    *  Load a module or javascript or JSON file based on its module_identifier
    *  and return the results.
@@ -57,10 +60,17 @@
       extension = splitPath(path).ext.toLowerCase();
     }
 
+    // Look for the file in the js_file_cache
+    if (extension === '.js' && js_file_cache[path]) {
+      return js_file_cache[path];
+    }
+
     file = __readFileSync(cleanPath(path));
 
     if (extension === '.js') {
-      return loadJavascript(path, file);
+      var exports = loadJavascript(path, file);
+      js_file_cache[path] = exports;
+      return exports;
     } else if (extension === '.json') {
       return loadJson(path, file);
     } else {
@@ -148,6 +158,9 @@
 
   // Normalize a path and remove extra './' and '/'
   function cleanPath(path) {
+
+    var has_dot_slash_prefix = path.indexOf('./') === 0;
+
     // Special case: 'codius_modules/a/codius_modules/b/../file.js' -> 'codius_modules/a/file.js'
     var cleaned = path.replace(DOT_DOT_FROM_MODULE_REGEX, '');
 
@@ -156,6 +169,10 @@
 
     // Remove extra './' and '/' from the path
     cleaned = cleaned.replace(EXTRA_DOTS_SLASHES_REGEX, '/');
+
+    if (has_dot_slash_prefix) {
+      cleaned = './' + cleaned;
+    }
 
     return cleaned;
   }
