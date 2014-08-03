@@ -10,7 +10,8 @@ var components = [
   'callback-handler.js',
   'module.js',
   'secrets.js',
-  'input.js'
+  'input.js',
+  'buffer.js'
 ];
 var runtime_library = ';';
 components.forEach(function(component_filename){
