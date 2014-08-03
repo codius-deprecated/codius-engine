@@ -26,7 +26,7 @@
   var INFERRED_DIRECTORY_FILES = ['index.js'];
 
   // File extensions that can be inferred if none is explicitly declared
-  var INFERRED_FILE_EXTENSIONS = ['.js'];
+  var INFERRED_FILE_EXTENSIONS = ['.js', '.json'];
 
   // Cache the exports of js files so they are not loaded multiple times
   var js_file_cache = {};
@@ -55,7 +55,7 @@
     extension = splitPath(path).ext.toLowerCase();
     if (!extension) {
 
-      path = tryModule(path) || tryFile(path) || tryDirectory(path) || path;
+      path = tryModule(path) || tryNodeModule(path) || tryFile(path) || tryDirectory(path) || path;
 
       extension = splitPath(path).ext.toLowerCase();
     }
@@ -115,14 +115,28 @@
           '} else { ' +
             'full_id = "' + dir_for_submodules + '" + id; ' +
           '}' +
-          'return original_require(full_id);' +
+          'var module; ' +
+          'try {' +
+            'module = original_require(full_id);' +
+          '} catch (error) { ' +
+            'try { ' + 
+              'module = original_require(id); ' +
+            '} catch (discarded_error) { ' +
+              'throw error; ' +
+            '}' +
+          '}' +
+          'return module;' +
         '}' +
       '})()';
 
       // eval the module code to extract the module.exports section
-      eval('(function(module, exports, require){' + overwrite_require + ';' + module_code + ';})(module, module.exports, require);');
+      var global = context;
+      Function('module', 'exports', 'require',
+        overwrite_require + ';' + 
+        module_code + ';' +
+        'if (!module.exports && !exports){ exports = this; }').bind(global)(module, module.exports, require);
     } catch(error) {
-      throw new Error('Error requiring module: "' + module_identifier + '" ' + error);
+      throw new Error('Error loading: "' + module_identifier + '" ' + error);
     }
 
     exports = module.exports || module;
@@ -184,9 +198,16 @@
         var manifest_string = __readFileSync(cleanPath(path + '/' + MODULE_MANIFEST_FILES[m]));
         if (typeof manifest_string === 'string') {
           var manifest = JSON.parse(manifest_string);
-          var main_path = cleanPath(path + '/' + manifest.main);
-          if (typeof __readFileSync(main_path) === 'string') {
-            return main_path;            
+          if (manifest.main) {
+            var main_path = cleanPath(path + '/' + manifest.main);
+            if (typeof __readFileSync(main_path) === 'string') {
+              return main_path;            
+            }
+          } else {
+            var index_path = cleanPath(path + '/index.js');
+            if (typeof __readFileSync(index_path) === 'string') {
+              return index_path;
+            }
           }
         }
       } catch(error) {
@@ -204,6 +225,13 @@
     }
 
     return null;
+  }
+
+  // Look for the module in the current directory /node_modules
+  function tryNodeModule(path) {
+    var path_one_level_up = truncateToSecondToLastInstance(path, CODIUS_MODULE_REGEX);
+    var node_modules_path = path_one_level_up + '/node_modules/' + splitPath(path).basename;
+    return tryModule(node_modules_path);
   }
 
   // Try the INFERRED_DIRECTORY_FILES to see if the path refers to a directory
