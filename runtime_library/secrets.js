@@ -5,14 +5,15 @@
   var old_require = context.require;
   context.require = function(module_identifier) {
     if (module_identifier === 'secrets') {
-      return {
-        getSecret: getSecret,
-        getKeypair: getKeypair
-      };
+      return new Secrets();
     } else {
       return old_require(module_identifier);
     }
   };
+
+  function Secrets() {
+
+  }
 
   /**
    *  Get a 512-bit hex-encoded deterministic secret that is unique to the contract
@@ -23,13 +24,13 @@
    *  @param {Error} error
    *  @param {String} secret
    */
-  function getSecret(callback) {
+  Secrets.prototype.getSecret = function(callback) {
     postMessage({
       api: 'secrets',
       method: 'getSecret',
       data: ''
     }, callback);
-  }
+  };
 
   /**
    *  Get a keypair for the given signature scheme that is deterministic and unique
@@ -42,7 +43,7 @@
    *  @param {String} keypair.public
    *  @param {String} keypair.private
    */
-  function getKeypair(signature_scheme, callback) {
+  Secrets.prototype.getKeypair = function(signature_scheme, callback) {
     if (typeof signature_scheme === 'function') {
       callback = signature_scheme;
       signature_scheme = 'ec_secp256k1';
@@ -53,6 +54,6 @@
       method: 'getKeypair',
       data: signature_scheme
     }, callback);
-  }
+  };
 
 })(this);

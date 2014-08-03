@@ -5,24 +5,25 @@
   var old_require = context.require;
   context.require = function(module_identifier) {
     if (module_identifier === 'input') {
-      return {
-        get: getInputData,
-        getJson: getInputDataAsJson
-      };
+      return new Input();
     } else {
       return old_require(module_identifier);
     }
   };
 
-  function getInputData(callback) {
+  function Input() {
+
+  }
+
+  Input.prototype.get = function(callback) {
     postMessage({
       api: 'input',
       method: 'get',
       data: ''
     }, callback);
-  }
+  };
 
-  function getInputDataAsJson(callback) {
+  Input.prototype.getJson = function(callback) {
     getInputData(function(error, data_string){
       if (error) {
         callback(error);
@@ -38,6 +39,6 @@
         callback(null, json);
       }
     });
-  }
+  };
 
 })(this);
