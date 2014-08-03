@@ -141,6 +141,8 @@
     if (self._active_callbacks_count === 0) {
       context.onmessage = null;
     }
+
+    __check_finished();
   };
 
   addCallbacksToIPCMessaging();
