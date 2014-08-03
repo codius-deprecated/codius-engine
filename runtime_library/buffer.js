@@ -1390,6 +1390,6 @@
 
   })(module, module.exports);
 
-  context.Buffer = module.exports;
+  context.Buffer = context.Int32Array = module.exports;
 
 })(this);

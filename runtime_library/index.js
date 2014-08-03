@@ -9,6 +9,7 @@ var fs = require('fs');
 var components = [
   'callback-handler.js',
   'module.js',
+  'fs.js',
   'secrets.js',
   'input.js',
   'buffer.js'
