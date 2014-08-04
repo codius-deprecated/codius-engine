@@ -69,7 +69,6 @@
 
     if (extension === '.js') {
       var exports = loadJavascript(path, file);
-      js_file_cache[path] = exports;
       return exports;
     } else if (extension === '.json') {
       return loadJson(path, file);
@@ -94,6 +93,8 @@
   function loadJavascript(module_identifier, module_code) {
     var module = { exports: {} };
     var exports;
+
+    js_file_cache[module_identifier] = module.exports;
 
     try {
       // Overwrite the require that will be used by submodules
@@ -146,6 +147,9 @@
     }
 
     exports = module.exports || module;
+
+    // Update cache in case they have overwritten module.exports
+    js_file_cache[module_identifier] = exports;
 
     return exports;
   }
