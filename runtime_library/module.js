@@ -227,11 +227,16 @@
     return null;
   }
 
-  // Look for the module in the current directory /node_modules
+  // Look for the module in the current directory /node_modules and the directory above
   function tryNodeModule(path) {
-    var path_one_level_up = truncateToSecondToLastInstance(path, CODIUS_MODULE_REGEX);
-    var node_modules_path = path_one_level_up + '/node_modules/' + splitPath(path).basename;
-    return tryModule(node_modules_path);
+    var node_modules_path;
+    var suffix = '/node_modules/' + splitPath(path).basename;
+
+    if ((node_modules_path = tryModule(truncateToLastInstance(path, CODIUS_MODULE_REGEX) + suffix))) {
+      return node_modules_path;
+    } else {
+      return tryModule(truncateToSecondToLastInstance(path, CODIUS_MODULE_REGEX)) + suffix;
+    }
   }
 
   // Try the INFERRED_DIRECTORY_FILES to see if the path refers to a directory
