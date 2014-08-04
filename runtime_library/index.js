@@ -12,7 +12,8 @@ var components = [
   'fs.js',
   'secrets.js',
   'input.js',
-  'buffer.js'
+  'buffer.js',
+  'crypto.js'
 ];
 var runtime_library = ';';
 components.forEach(function(component_filename){
