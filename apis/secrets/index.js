@@ -1,7 +1,8 @@
 var crypto = require('../../lib/crypto');
 
 exports.init = function(engine, config, secrets) {
-  engine.registerAPI('secrets', function(manifest){
+  engine.registerAPI('secrets', function(runner){
+    var manifest = runner.getManifest();
     return new SecretGenerator(manifest, secrets);
   });
 };
