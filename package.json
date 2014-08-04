@@ -16,7 +16,7 @@
     "bitcoinjs-lib": "1.0.1",
     "ecurve": "^1.0.0",
     "extend": "~1.3.0",
-    "sandbox": "https://github.com/emschwartz/sandbox/tarball/readFileSync"
+    "sandbox": "https://github.com/codius/node-sandbox/tarball/master"
   },
   "devDependencies": {
     "chai": "^1.9.1",
