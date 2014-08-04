@@ -162,6 +162,45 @@ describe('Runtime Library module', function(){
       expect(context.__readFileSync).to.have.been.calledWith('./codius_modules/express/node_modules/debug/node_modules/ms/index.js');
     });
 
+    it('should look for a file if the string starts with a "./"', function(){
+      var context = { __readFileSync: sinon.stub(), console: { log: console.log } };
+      context.__readFileSync.withArgs('./a.js').returns('module.exports={found: "file"}');
+      context.__readFileSync.withArgs('./codius_modules/a').returns('module.exports={found:"module"}');
+
+      var module = getNewModuleVersion(context);
+      var a = module.require('./a');
+
+      expect(a).to.haveOwnProperty('found');
+      expect(a.found).to.equal('file');
+    });
+
+    it('should look for a module if the string does not start with a "./"', function(){
+      var context = { __readFileSync: sinon.stub(), console: { log: console.log } };
+      context.__readFileSync.withArgs('./a.js').returns('module.exports={found: "file"}');
+      context.__readFileSync.withArgs('./codius_modules/a').returns('module.exports={found:"module"}');
+
+      var module = getNewModuleVersion(context);
+      var a = module.require('a');
+
+      expect(a).to.haveOwnProperty('found');
+      expect(a.found).to.equal('module');
+    });
+
+    it('should look for a file if the string starts with a "./", even when it is deep in the tree', function(){
+      var context = { __readFileSync: sinon.stub(), console: { log: console.log } };
+      context.__readFileSync.withArgs('./codius_modules/express/node_modules/debug/package.json').returns('{ "main": "node.js" }');
+      context.__readFileSync.withArgs('./codius_modules/express/node_modules/debug/node.js').returns('module.exports=require("./debug")');
+      context.__readFileSync.withArgs('./codius_modules/express/node_modules/debug/debug.js').returns('module.exports={ found: "yay" }');
+
+      var module = getNewModuleVersion(context);
+      var a = module.require('./codius_modules/express/node_modules/debug');
+
+      console.log(context.__readFileSync.args);
+
+      expect(a).to.haveOwnProperty('found');
+      expect(a.found).to.equal('yay');
+    });
+
   });
 
 });
