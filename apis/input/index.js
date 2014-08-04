@@ -1,5 +1,6 @@
 exports.init = function (engine, config) {
-  engine.registerAPI('input', function(manifest, data){
+  engine.registerAPI('input', function(runner, data){
+    var manifest = runner.getManifest();
     return new Input(data);
   });
 };

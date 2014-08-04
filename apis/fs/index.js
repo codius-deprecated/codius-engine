@@ -1,5 +1,6 @@
 exports.init = function (engine, config) {
-  engine.registerAPI('fs', function(manifest){
+  engine.registerAPI('fs', function(runner){
+    var manifest = runner.getManifest();
     return new FileSystemReadOnly(config.contractsFilesystemPath, manifest);
   });
 };
