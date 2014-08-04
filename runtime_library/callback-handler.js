@@ -49,29 +49,26 @@
   CallbackHandler.prototype.postMessageWithCallback = function(message, callback) {
     var self = this;
 
-    if (typeof callback === 'function') {
+    if (typeof message !== 'object') {
+      throw new Error('Message must be an object.');
+    }
 
+    if (typeof callback === 'function') {
       // Add the callback to the array
       self._callback_array.push(callback);
       self._active_callbacks_count += 1;
       var callback_index = self._callback_array.length - 1;
 
       // Add the callback_index to the message body
-      if (typeof message === 'object') {
-        message.callback = callback_index;
-      } else {
-        message = {
-          data: message,
-          callback: callback_index
-        };
-      }
-
+      message.callback = callback_index;
     }
 
     var message_string = JSON.stringify(message);
 
-    // Set the global onmessage to catch the response
-    context.onmessage = self.onmessageCallbackHandler.bind(self);
+    if (typeof callback === 'function') {
+      // Set the global onmessage to catch the response
+      context.onmessage = self.onmessageCallbackHandler.bind(self);
+    }
 
     self._postMessage_original(message_string);
   };
@@ -107,7 +104,7 @@
     // pass the message on to the original onmessage function
     if (message_body.type !== 'callback' || typeof callback_index !== 'number') {
       // throw new Error('Invalid callback: message.callback must be a number');
-      self._onmessage_original(message);
+      if ('function' === typeof _onmessage_original) self._onmessage_original(message);
       return;
     }
 
