@@ -55,7 +55,7 @@
     extension = splitPath(path).ext.toLowerCase();
     if (!extension) {
 
-      path = tryModule(path) || tryNodeModule(path) || tryFile(path) || tryDirectory(path) || path;
+      path = tryFile(path) || tryModule(path) || tryNodeModule(path) || tryDirectory(path) || path;
 
       extension = splitPath(path).ext.toLowerCase();
     }
