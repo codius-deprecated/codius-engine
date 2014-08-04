@@ -62,14 +62,13 @@
 
     // Look for the file in the js_file_cache
     if (extension === '.js' && js_file_cache[path]) {
-      return js_file_cache[path];
+      return js_file_cache[path].exports;
     }
 
     file = __readFileSync(cleanPath(path));
 
     if (extension === '.js') {
       var exports = loadJavascript(path, file);
-      js_file_cache[path] = exports;
       return exports;
     } else if (extension === '.json') {
       return loadJson(path, file);
@@ -94,6 +93,8 @@
   function loadJavascript(module_identifier, module_code) {
     var module = { exports: {} };
     var exports;
+
+    js_file_cache[module_identifier] = module;
 
     try {
       // Overwrite the require that will be used by submodules
