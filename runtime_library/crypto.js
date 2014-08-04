@@ -3396,7 +3396,7 @@
     return hashAndHmacWrapper(algorithm);
   };
   crypto.createHmac = function(algorithm, key) {
-    if (!key) {
+    if (typeof key !== 'string') {
       throw new Error('Key is required to create HMAC');
     }
 
@@ -3410,7 +3410,7 @@
     return (function(){
       var data = [];
       var hash_or_hmac;
-      if (key) {
+      if (typeof key === 'string') {
         hash_or_hmac = crypto['Hmac' + algorithm.toUpperCase()];
       } else {
         hash_or_hmac = crypto[algorithm.toUpperCase()];
