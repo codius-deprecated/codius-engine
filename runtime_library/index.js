@@ -12,6 +12,7 @@ var components = [
   'fs.js',
   'secrets.js',
   'input.js',
+  'response.js',
   'buffer.js',
   'crypto.js'
 ];
