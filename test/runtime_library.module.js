@@ -26,7 +26,7 @@ describe('Runtime Library module', function(){
     it('should use __readFileSync to check if the module_identifier is a module', function(){
       var context = { __readFileSync: sinon.stub() , console: { log: console.log } };
       context.__readFileSync.withArgs('codius_modules/module_id/codius-manifest.json').returns('{ "main": "main.js" }')
-      context.__readFileSync.withArgs('codius_modules/module_id/main.js').returns('')
+      context.__readFileSync.withArgs('codius_modules/module_id/main.js').returns('module.exports={}')
       var module = getNewModuleVersion(context);
       var test_module = module.require('module_id');
       expect(context.__readFileSync).to.have.been.calledWith('codius_modules/module_id/main.js');
@@ -68,7 +68,7 @@ describe('Runtime Library module', function(){
       context.__readFileSync.withArgs('codius_modules/a/codius-manifest.json').returns('{"modules":{"b":"hash"}, "main": "main.js"}');
       context.__readFileSync.withArgs('codius_modules/a/main.js').returns('module.exports=require("b");');
       context.__readFileSync.withArgs('codius_modules/a/codius_modules/b/codius-manifest.json').returns('{"main":"main.js"}');
-      context.__readFileSync.withArgs('codius_modules/a/codius_modules/b/main.js').returns('');
+      context.__readFileSync.withArgs('codius_modules/a/codius_modules/b/main.js').returns('module.exports={}');
 
       var module = getNewModuleVersion(context);
       var a = module.require('a');
@@ -157,10 +157,7 @@ describe('Runtime Library module', function(){
       context.__readFileSync.withArgs('./codius_modules/express/node_modules/debug/node_modules/ms/index.js').returns('');
 
       var module = getNewModuleVersion(context);
-      try {
       module.require('./codius_modules/express/node_modules/debug/debug.js');
-    } catch(e) {}
-      console.log(context.__readFileSync.args)
 
       expect(context.__readFileSync).to.have.been.calledWith('./codius_modules/express/node_modules/debug/node_modules/ms/index.js');
     });
