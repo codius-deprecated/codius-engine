@@ -261,15 +261,25 @@
 
   // Try each of the INFERRED_FILE_EXTENSIONS to see if they are actual files
   function tryFile(path) {
-    for (var f = 0; f < INFERRED_FILE_EXTENSIONS.length; f++) {
+    var extension = splitPath(path).ext;
+
+    if (extension) {
       try {
-        var file_path = cleanPath(path + INFERRED_FILE_EXTENSIONS[f]);
-        var file_string = __readFileSync(file_path);
-        if (typeof file_string === 'string') {
-          return file_path;
+        if (__readFileSync(cleanPath(path))) {
+          return cleanPath(path);
         }
-      } catch(error) {
-        continue;
+      } catch (e) {}
+    } else {
+      for (var f = 0; f < INFERRED_FILE_EXTENSIONS.length; f++) {
+        try {
+          var file_path = cleanPath(path + INFERRED_FILE_EXTENSIONS[f]);
+          var file_string = __readFileSync(file_path);
+          if (typeof file_string === 'string') {
+            return file_path;
+          }
+        } catch(error) {
+          continue;
+        }
       }
     }
     return null;
