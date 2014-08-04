@@ -14,7 +14,10 @@ var components = [
   'input.js',
   'response.js',
   'buffer.js',
-  'crypto.js'
+  'crypto.js',
+  'events.js',
+  'tty.js',
+  'util.js'
 ];
 var runtime_library = ';';
 components.forEach(function(component_filename){
