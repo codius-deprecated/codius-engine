@@ -199,9 +199,9 @@
         if (typeof manifest_string === 'string') {
           var manifest = JSON.parse(manifest_string);
           if (manifest.main) {
-            var main_path = cleanPath(path + '/' + manifest.main);
-            if (typeof __readFileSync(main_path) === 'string') {
-              return main_path;            
+            var main_path = tryFile(path + '/' + manifest.main);
+            if (main_path) {
+              return main_path;
             }
           } else {
             var index_path = cleanPath(path + '/index.js');
