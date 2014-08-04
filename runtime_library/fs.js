@@ -17,8 +17,12 @@
 
   FileSystem.prototype.readFile = function(path, options, callback) {
     postMessage({
-      path: path,
-      options: options
+      api: 'fs',
+      method: 'readFile',
+      data: {
+        path: path,
+        options: options
+      }
     }, callback);
   };
 
