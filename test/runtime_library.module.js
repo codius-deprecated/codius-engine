@@ -148,6 +148,23 @@ describe('Runtime Library module', function(){
       expect(a.b).to.equal(2);
     });
 
+    it('should find node_modules in the same folder, three levels deep', function(){
+      var context = { __readFileSync: sinon.stub(), console: { log: console.log } };
+      context.__readFileSync.withArgs('./codius_modules/express/package.json').returns('{ "main": "index.js" }');
+      context.__readFileSync.withArgs('./codius_modules/express/node_modules/debug/package.json').returns('{ "main": "index.js" }');
+      context.__readFileSync.withArgs('./codius_modules/express/node_modules/debug/debug.js').returns('module.exports=require("ms");');
+      context.__readFileSync.withArgs('./codius_modules/express/node_modules/debug/node_modules/ms/package.json').returns('{ "main": "index.js" }');
+      context.__readFileSync.withArgs('./codius_modules/express/node_modules/debug/node_modules/ms/index.js').returns('');
+
+      var module = getNewModuleVersion(context);
+      try {
+      module.require('./codius_modules/express/node_modules/debug/debug.js');
+    } catch(e) {}
+      console.log(context.__readFileSync.args)
+
+      expect(context.__readFileSync).to.have.been.calledWith('./codius_modules/express/node_modules/debug/node_modules/ms/index.js');
+    });
+
   });
 
 });

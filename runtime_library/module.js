@@ -12,7 +12,7 @@
   // ./codius_modules/module_name
 
   // TODO: this regex is not working properly!
-  var CODIUS_MODULE_REGEX = /(?!^\.)(?:^|(?:(?:\.\/)?codius_modules\/))(?!codius_modules)((?:\\\/|[^\/])+)/i;
+  var CODIUS_MODULE_REGEX = /(?!^\.)(?:^|(?:(?:\.\/)?(?:codius_modules|node_modules)\/))(?!(?:codius_modules|node_modules))((?:\\\/|[^\/])+)/i;
 
   // This regex is used to replace unnecessary './' and '/' within paths
   var EXTRA_DOTS_SLASHES_REGEX = /(\/\.\/|\/\/)/g;
@@ -106,6 +106,7 @@
       var dir_for_submodules = splitPath(module_identifier).dir;
       var last_module_path = truncateToLastInstance(dir_for_submodules, CODIUS_MODULE_REGEX);
 
+      // TODO: REFACTOR THIS!!!
       var overwrite_require = '(function(){' +
         'var original_require = require; ' +
         'var full_id = ""; ' +
@@ -120,9 +121,14 @@
             'module = original_require(full_id);' +
           '} catch (error) { ' +
             'try { ' + 
-              'module = original_require(id); ' +
+              'full_id = "' + last_module_path + '" + "/node_modules/" + ' + CODIUS_MODULE_REGEX + '.exec(id)[1] + id.replace(' + CODIUS_MODULE_REGEX + ', ""); ' +
+              'module = original_require(full_id); ' +
             '} catch (discarded_error) { ' +
-              'throw error; ' +
+              'try {' +
+                'module = original_require(id); ' +
+              '} catch (discarded_error) { ' +
+                'throw error; ' +
+              '}' +
             '}' +
           '}' +
           'return module;' +
@@ -229,14 +235,12 @@
 
   // Look for the module in the current directory /node_modules and the directory above
   function tryNodeModule(path) {
-    var node_modules_path;
     var suffix = '/node_modules/' + splitPath(path).basename;
 
-    if ((node_modules_path = tryModule(truncateToLastInstance(path, CODIUS_MODULE_REGEX) + suffix))) {
-      return node_modules_path;
-    } else {
-      return tryModule(truncateToSecondToLastInstance(path, CODIUS_MODULE_REGEX)) + suffix;
-    }
+    var node_modules_path = tryModule(truncateToLastInstance(path, CODIUS_MODULE_REGEX) + suffix) 
+      || tryModule(truncateToSecondToLastInstance(path, CODIUS_MODULE_REGEX) + suffix);
+
+    return node_modules_path;
   }
 
   // Try the INFERRED_DIRECTORY_FILES to see if the path refers to a directory
@@ -273,16 +277,8 @@
 
   // Expand `module_name/other_stuff` to `codius_modules/module_name/other_stuff`
   function expandCodiusModules(path) {
-    if (path.search(CODIUS_MODULE_REGEX) === 0) {
-      var module_name = CODIUS_MODULE_REGEX.exec(path)[1];
-      var rest_of_path = path.replace(CODIUS_MODULE_REGEX, '');
-      path = 'codius_modules/' + module_name;
-      if (rest_of_path && rest_of_path[0] !== '/') {
-        path += '/';
-      }
-      if (rest_of_path) {
-        path += rest_of_path;
-      }
+    if (path.indexOf('.') !== 0 && path.indexOf('codius_modules') !== 0) {
+      path = 'codius_modules/' + path;
     }
     return path;
   }
