@@ -17,7 +17,10 @@ var components = [
   'crypto.js',
   'events.js',
   'tty.js',
-  'util.js'
+  'util.js',
+  'path.js',
+  'querystring.js',
+  'http.js'
 ];
 var runtime_library = ';';
 components.forEach(function(component_filename){
