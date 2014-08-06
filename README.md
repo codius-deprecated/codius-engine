@@ -5,10 +5,29 @@ The engine to run contracts
 
 + `npm install`
 + `npm test` runs the existing tests
++ Use the [`codius-cli`](https://github.com/codius/codius-cli) to run test contracts
 
-## IPC Messaging Format
+## Structure of the engine
 
-### Contract -> Sandbox
+The engine is the part of Codius responsible for running sandboxed code and providing APIs for that code to communicate with.
+
+For the sandbox we are currently using [`codius/node-sandbox`](https://github.com/codius/node-sandbox), though that will soon be replaced with Native Client.
+
+The [`Engine`](lib/engine.js) is the main component used to run contract code and the [`ContractRunner`](lib/contractrunner.js) is responsible for handling messages coming from the sandbox and passing valid ones to the corresponding APIs.
+
+Contract code uses the `postMessage` command to communicate with the outside. The format is defined below. Most contracts will not use the `postMessage` command directly but will instead use modules or [`runtime_library`](runtime_library/) components, which are loaded into the sandbox by default.
+
+One of the most important `runtime_library` components is [`require`](runtime_library/module.js) which loads modules, Javascript, and JSON files akin to Node.js's `require`. `require`'s behavior is also outlined below.
+
+## Questions?
+
+Any questions? Join the live chat! [![Gitter chat](https://badges.gitter.im/codius/codius-chat.png)](https://gitter.im/codius/codius-chat)
+
+## APIs and Message Formats
+
+### IPC Messaging Format
+
+#### Contract -> Sandbox
 
 API call with callback
 ```js
@@ -21,9 +40,7 @@ API call with callback
 }
 ```
 
-Process finished message?
-
-### Sandbox -> Contract
+#### Sandbox -> Contract
 
 API callback
 ```js
@@ -35,23 +52,9 @@ API callback
 }
 ```
 
-Event listener triggered
-```js
-{
-  "type": "event",
-  "handler": "eventHandlerName",
-  "data": "data passed in on event"
-}
-```
+### Contract-specific Secrets and Keypairs
 
-Unprompted message? (e.g. the contract client triggering a contract to run)
-- how to reference a specific contract?
-- how do you validate they have permissions to send it a message?
-
-
-## Contract-specific Secrets and Keypairs
-
-### Secret Derivation
+#### Secret Derivation
 
 The engine must be started with a `MASTER_SECRET`.
 
@@ -64,7 +67,7 @@ This secret is used to derive multiple other secrets, which are used to provide 
 + other `MASTER_KEYPAIR_{other signature schemes}` (e.g. `ec_ed25519`)
 
 
-### API
+#### API
 
 ```js
 var secrets = require('secrets');
@@ -89,7 +92,7 @@ secrets.getKeypair('ec_secp256k1', function(error, keypair){
 
 ```
 
-## Require
+### Require
 
 `require` can be used in the sandbox to load modules, javascript files, and JSON files.
 
