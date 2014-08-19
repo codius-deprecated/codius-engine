@@ -48,12 +48,18 @@
     var file;
     var extension;
 
+    // context.console.log('looking for path: ' + path)
+
     path = expandCodiusModules(path);
 
     // If the path does not end with an extension, check if it
     // is a module or a file without an extension listed
     extension = splitPath(path).ext.toLowerCase();
     if (!extension) {
+
+      // context.console.log("tryFile(path)" + tryFile(path));
+      // context.console.log("tryModule(path)" + tryModule(path));
+      // context.console.log("tryNodeModule(path)" + tryNodeModule(path));
 
       path = tryFile(path) || tryModule(path) || tryNodeModule(path) || tryDirectory(path) || path;
 
@@ -64,6 +70,8 @@
     if (extension === '.js' && js_file_cache[path]) {
       return js_file_cache[path].exports;
     }
+
+    // context.console.log('decided on path: ' + path);
 
     file = __readFileSync(cleanPath(path));
 
@@ -200,6 +208,8 @@
 
   // Try loading all of the possible MODULE_MANIFEST_FILES looking for a 'main' to add to the path
   function tryModule(path) {
+    // context.console.log('tryModule for path: ' + path)
+
     for (var m = 0; m < MODULE_MANIFEST_FILES.length; m++) {
       try {
         var manifest_string = __readFileSync(cleanPath(path + '/' + MODULE_MANIFEST_FILES[m]));
@@ -207,6 +217,7 @@
           var manifest = JSON.parse(manifest_string);
           if (manifest.main) {
             var main_path = tryFile(path + '/' + manifest.main);
+            // console.log('tryModule is trying __readFileSync on path: ' + main_path)
             if (main_path) {
               return main_path;
             }
@@ -289,7 +300,7 @@
   // Expand `module_name/other_stuff` to `codius_modules/module_name/other_stuff`
   function expandCodiusModules(path) {
     if (path.indexOf('.') !== 0 && path.indexOf('codius_modules') !== 0) {
-      path = 'codius_modules/' + path;
+      path = './codius_modules/' + path;
     }
     return path;
   }
