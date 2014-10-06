@@ -1,129 +1,204 @@
 exports.init = function (engine, config) {
   engine.registerAPI('fs', function(runner){
     var manifest = runner.getManifest();
-    return new FileSystemReadOnly(config.contractsFilesystemPath, manifest);
+    var manifestHash = runner.getManifestHash();
+    return new FileSystemReadOnly(config.contractsFilesystemPath, manifest, manifestHash);
   });
 };
 
 
 var fs          = require('fs');
 var path_module = require('path');
+var constants   = require('constants');
 
-var CODIUS_MODULES_REGEX = /^(?:(?:\.\/|\/)?codius_modules\/)((?:\\\/|[^\/])+)(?:\/)?/i;
-var CODIUS_MANIFEST_REGEX = /^((\.\/|\/)?codius-manifest.json)/i;
-
-// module.exports = FileSystemReadOnly;
-
-function FileSystemReadOnly(sandbox_filesystem_path, manifest) {
+function FileSystemReadOnly(sandbox_filesystem_path, manifest, manifestHash) {
   var self = this;
 
   self._manifest = manifest;
+  self._manifest_hash = manifestHash;
   self._sandbox_filesystem_path = sandbox_filesystem_path;
+
+  self._openedFds = [];
 }
 
-/**
- *  Synchronous read file. See _readFile for details.
- *
- *  @param {String} path
- *
- *  @returns {raw results from fs.readFileSync}
- */
-FileSystemReadOnly.prototype.readFileSync = function(path) {
+FileSystemReadOnly.MANIFEST_PATH = '/codius-manifest.json';
+FileSystemReadOnly.SUBMODULE_PREFIX = '/node_modules';
+
+FileSystemReadOnly.methods = [
+  'stat',
+  'lstat',
+  'fstat',
+  'open',
+  'close',
+  'read'
+];
+
+FileSystemReadOnly._createSystemError = function (path, code, methodName) {
+  if ("number" !== typeof constants[code]) {
+    console.error('Tried to create error with invalid error code "'+code+'"');
+    code = 'EFAULT';
+  }
+
+  var error = new Error(code+', '+methodName+' \''+path+'\'');
+  error.errno = constants[code];
+  error.code = code;
+  error.path = path;
+  return error;
+}
+
+FileSystemReadOnly.prototype.getMethod = function(name) {
   var self = this;
-  return self._readFile(self._manifest, path, { encoding: 'utf8' });
+
+  if (FileSystemReadOnly.methods.indexOf(name) !== -1) {
+    return self[name].bind(self);
+  }
+
+};
+
+
+FileSystemReadOnly.prototype.stat = function(path, callback) {
+  var self = this;
+
+  var fileHash = this._translateFilenameToHash(path);
+  if (fileHash) {
+    fs.stat(self._sandbox_filesystem_path + fileHash, callback);
+  } else {
+    callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'stat'));
+  }
+};
+
+FileSystemReadOnly.prototype.lstat = function(path, callback) {
+  var self = this;
+
+  var fileHash = this._translateFilenameToHash(path);
+  if (fileHash) {
+    fs.lstat(self._sandbox_filesystem_path + fileHash, callback);
+  } else {
+    callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'lstat'));
+  }
+};
+
+FileSystemReadOnly.prototype.fstat = function(fd, callback) {
+  var self = this;
+
+  if (!self._openedFds[fd]) {
+    callback(FileSystemReadOnly._createSystemError(path, 'EBADF', 'fstat'));
+    return;
+  }
+
+  fs.fstat(fd, callback);
 };
 
 /**
- *  Asynchronous read file. See _readFile for details.
+ *  Open file. Creates a file descriptor.
  *
- *  @param {String} data Stringified object with `path` and `options` fields
+ *  Note that we enforce a read-only policy here.
+ *
+ *  @param {String} path Stringified object with `path` and `options` fields
+ *  @param {String} flags Ignored, we always use 'r'
+ *  @param {Number} mode Ignored and no effect since we never allow file creation
  *  @param {Function} callback
  *
  *  @callback
  *  @param {Error} error
- *  @param {results from fs.readFile} result
+ *  @param {Number} fd File descriptor
  */
-FileSystemReadOnly.prototype.readFile = function(data, callback) {
+FileSystemReadOnly.prototype.open = function(path, flags, mode, callback) {
   var self = this;
-  var path;
-  var options;
-  try {
-    var json = JSON.parse(data);
-    path = json.path;
-    options = json.options;
-  } catch(error) {
-    callback(new Error('Invalid data. Must be stringified JSON object with `path` and `options` fields'));
+
+  var fileHash = this._translateFilenameToHash(path);
+  if (fileHash) {
+    fs.open(self._sandbox_filesystem_path + fileHash, 'r', function (error, fd) {
+      if (!error) {
+        self._openedFds[fd] = true;
+      }
+      callback(error, fd);
+    });
+  } else {
+    callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'open'));
+  }
+};
+
+FileSystemReadOnly.prototype.close = function(fd, callback) {
+  var self = this;
+
+  if (!self._openedFds[fd]) {
+    callback(FileSystemReadOnly._createSystemError(path, 'EBADF', 'close'));
     return;
   }
 
-  self._readFile(self._manifest, path, options, callback);
+  fs.close(fd, callback);
 };
 
-
-/**
- *  Helper function to read files based on the permissions outlined
- *  in the manifest, either async or sync. All files are addressed in the
- *  filesystem by the hash of their contents. However, entities can only
- *  request files by hash that they have declared explicitly in the
- *  manifest.files field or files that are declared in submodules.
- *
- *  @param {String} path
- *  @param {Object} [{}] options
- *  @param {Function} [null -- makes function sync] callback
- */
-FileSystemReadOnly.prototype._readFile = function(manifest, path, options, callback) {
+FileSystemReadOnly.prototype.read = function(fd, size, position, encoding, callback) {
   var self = this;
+
+  if (!self._openedFds[fd]) {
+    callback(FileSystemReadOnly._createSystemError(path, 'EBADF', 'read'));
+    return;
+  }
+
+  // TODO Should not be using legacy API
+  fs.read(fd, size, position, encoding, callback);
+};
+
+FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest, manifestHash) {
+  var self = this;
+
+  if (!manifest) {
+    manifest = self._manifest;
+  }
+
+  if (!manifestHash) {
+    manifestHash = self._manifest_hash;
+  }
+
+  if (typeof path !== "string") {
+    throw new Error('Path must be a string.');
+  }
 
   path = path_module.normalize(path);
 
-  if (CODIUS_MANIFEST_REGEX.test(path)) {
-    // Case: the file requested is this manifest
+  // Force path to be absolute
+  // TODO To allow relative paths, we would need to keep track of the current
+  //      working directory, which requires implementing chdir calls.
+  if (path.length < 1 || path[0] !== '/') path = '/' + path;
 
-    var manifest_string = JSON.stringify(manifest);
-    if (callback) {
-      callback(null, manifest_string);
-      return;
-    } else {
-      return manifest_string;
-    }
+  // Case: the file requested is the manifest
+  if (path === FileSystemReadOnly.MANIFEST_PATH) {
+    return manifestHash;
 
-  } else if (CODIUS_MODULES_REGEX.test(path)) {
-    // Case: the file requested is in a submodule
-
-    var module_name = CODIUS_MODULES_REGEX.exec(path)[1];
-    if (!manifest.modules[module_name]) {
-      return _handleError(new Error('Module "' + String(module_name) + '" not declared in manifest. All modules must be declared in manifest.'), callback);
+  // Case: the file is from a submodule (node_modules)
+  } else if (path.substr(0, FileSystemReadOnly.SUBMODULE_PREFIX.length) === FileSystemReadOnly.SUBMODULE_PREFIX) {
+    // TODO What about escaped slashes? (Not allowed on unix it seems, but still a concern?)
+    var moduleName = path.substr(FileSystemReadOnly.SUBMODULE_PREFIX.length+1).split('/')[0];
+    if (!manifest.modules.hasOwnProperty(moduleName)) {
+      // TODO Should return "404"
+      throw new Error('Module "' + String(moduleName) + '" not declared in manifest. All modules must be declared in manifest.');
     }
 
     // Load module manifest
-    var module_manifest_hash = manifest.modules[module_name];
-    var module_manifest;
+    var moduleManifestHash = manifest.modules[moduleName];
+    var moduleManifest;
     try {
-      module_manifest = fs.readFileSync(self._sandbox_filesystem_path + module_manifest_hash, { encoding: 'utf8' });
-      module_manifest = JSON.parse(module_manifest);
+      moduleManifest = fs.readFileSync(self._sandbox_filesystem_path + moduleManifestHash, { encoding: 'utf8' });
+      moduleManifest = JSON.parse(moduleManifest);
     } catch(error) {
-      return _handleError(new Error('Cannot load manifest for module: "' + String(module_name) + '". ' + error));
+      return _handleError(new Error('Cannot load manifest for module: "' + String(moduleName) + '". ' + error));
     }
 
     // Recurse
-    var rest_of_path = path.replace(CODIUS_MODULES_REGEX, '');
-    return self._readFile(module_manifest, rest_of_path, options, callback);
+    var restOfPath = path.substr(FileSystemReadOnly.SUBMODULE_PREFIX.length + 1 +
+                                 moduleName.length);
+    return self._translateFilenameToHash(restOfPath, moduleManifest, moduleManifestHash);
 
+  // Case: the file is another file in the contract
+  } else if (manifest.files.hasOwnProperty(path.substr(1)) !== -1) {
+    return manifest.files[path.substr(1)];
   } else {
-    // Case: we're looking for a file declared in this manifest
-
-    var normalized_path = path_module.normalize(path);
-
-    var declared_files = Object.keys(manifest.files);
-    for (var f = 0; f < declared_files.length; f++) {
-      if (normalized_path === path_module.normalize(declared_files[f])) {
-        return _readFileFromFullPath(self._sandbox_filesystem_path + manifest.files[declared_files[f]], options, callback)
-      }
-    }
+    // TODO Support directories
+    return false;
   }
-
-  // If we get here that means we couldn't find the file
-  return _handleError(new Error('File or module: "' + String(path) + '" not found. Cannot locate it in contract files or included modules.'));
 };
 
 // Helper function that handles errors sync or async
@@ -133,23 +208,6 @@ function _handleError(error, callback) {
     return;
   } else {
     throw error;
-  }
-}
-
-// Helper function that reads the file either sync or async
-function _readFileFromFullPath(path, options, callback) {
-  if (typeof options === 'function') {
-    callback = options;
-    options = {};
-  }
-
-  path = path_module.normalize(path);
-
-  if (typeof callback === 'function') {
-    fs.readFile(path, options, callback);
-    return;
-  } else {
-    return fs.readFileSync(path, options);
   }
 }
 
