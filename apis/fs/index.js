@@ -23,6 +23,7 @@ function FileSystemReadOnly(sandbox_filesystem_path, manifest, manifestHash) {
 
 FileSystemReadOnly.MANIFEST_PATH = '/codius-manifest.json';
 FileSystemReadOnly.SUBMODULE_PREFIX = '/node_modules';
+FileSystemReadOnly.HASH_REGEX = /^[0-9a-fA-F]{64}$/;
 
 FileSystemReadOnly.methods = [
   'stat',
@@ -189,6 +190,12 @@ FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest
 
   // Case: the file requested is the manifest
   if (path === FileSystemReadOnly.MANIFEST_PATH) {
+
+    // Ensure the manifestHash is actually a hash
+    if (!FileSystemReadOnly.HASH_REGEX.test(manifestHash)) {
+      throw new Error('Security error: Invalid manifest hash');
+    }
+
     return manifestHash;
 
   // Case: Two special virtual directories: module root and node_modules folder
@@ -237,6 +244,11 @@ FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest
     if (typeof context === 'object') {
       return 'dir';
     } else {
+      // Ensure the file hash is actually a hash
+      if (!FileSystemReadOnly.HASH_REGEX.test(context)) {
+        throw new Error('Security error: Invalid manifest hash');
+      }
+
       return context;
     }
   } else {
