@@ -221,9 +221,25 @@ FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest
 
   // Case: the file is another file in the contract
   } else if (manifest.files.hasOwnProperty(path.split('/', 2)[1]) !== -1) {
-    return manifest.files[path.substr(1)];
+    var context = manifest.files;
+    var segments = path.split('/').slice(1);
+
+    // Walk the path and descend into the manifest.files hierarchy
+    for (var i = 0, l = segments.length; i < l; i++) {
+      if (context.hasOwnProperty(segments[i])) {
+        context = context[segments[i]];
+      } else {
+        return false;
+      }
+    }
+
+    // Is it a directory?
+    if (typeof context === 'object') {
+      return 'dir';
+    } else {
+      return context;
+    }
   } else {
-    // TODO Support directories
     return false;
   }
 };
