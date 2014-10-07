@@ -213,15 +213,14 @@ FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest
       return _handleError(new Error('Cannot load manifest for module: "' + String(moduleName) + '". ' + error));
     }
 
-
-    // If the restOfPath is an empty string we are looking for 
+    // Get the remainder of the path and recurse to the submodule's manifest
     var restOfPath = path.substr(FileSystemReadOnly.SUBMODULE_PREFIX.length + 1 +
                                  moduleName.length);
 
     return self._translateFilenameToHash(restOfPath, moduleManifest, moduleManifestHash);
 
   // Case: the file is another file in the contract
-  } else if (manifest.files.hasOwnProperty(path.substr(1)) !== -1) {
+  } else if (manifest.files.hasOwnProperty(path.split('/', 2)[1]) !== -1) {
     return manifest.files[path.substr(1)];
   } else {
     // TODO Support directories
