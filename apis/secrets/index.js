@@ -1,4 +1,6 @@
 var crypto = require('../../lib/crypto');
+var util = require('util');
+var ApiModule = require('../../lib/api_module').ApiModule;
 
 exports.init = function(engine, config, secrets) {
   engine.registerAPI('secrets', function(runner){
@@ -11,11 +13,20 @@ exports.init = function(engine, config, secrets) {
  *  Class used to deterministically generate unique contract secrets
  */
 function SecretGenerator(manifest, secrets) {
+  ApiModule.call(this);
+
   var self = this;
 
   self._manifest = manifest;
   self._secrets = secrets;
 }
+
+util.inherits(SecretGenerator, ApiModule);
+
+SecretGenerator.methods = [
+  'getSecret',
+  'getKeypair'
+];
 
 /**
  *  Get a deterministic 512-bit secret that is unique to the contract.

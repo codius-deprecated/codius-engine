@@ -1,8 +1,14 @@
 exports.init = function (engine, config) {
-  engine.registerAPI('fs', function(runner){
+  engine.registerAPI('fs', function (runner){
     var manifest = runner.getManifest();
     var manifestHash = runner.getManifestHash();
-    return new FileSystemReadOnly(config.contractsFilesystemPath, manifest, manifestHash);
+    return new FileSystemReadOnly({
+      filesystemPath: config.contractsFilesystemPath,
+      runtimeLibraryPath: config.runtimeLibraryPath,
+      apis: config.apis,
+      manifest: manifest,
+      manifestHash: manifestHash
+    });
   });
 };
 
@@ -10,20 +16,32 @@ exports.init = function (engine, config) {
 var fs          = require('fs');
 var path_module = require('path');
 var constants   = require('constants');
+var util        = require('util');
+var _           = require('lodash');
 
-function FileSystemReadOnly(sandbox_filesystem_path, manifest, manifestHash) {
+var ApiModule   = require('../../lib/api_module').ApiModule;
+
+function FileSystemReadOnly(opts) {
+  ApiModule.call(this);
+
   var self = this;
 
-  self._manifest = manifest;
-  self._manifest_hash = manifestHash;
-  self._sandbox_filesystem_path = sandbox_filesystem_path;
+  self._manifest = opts.manifest;
+  self._manifest_hash = opts.manifestHash;
+  self._sandbox_filesystem_path = opts.filesystemPath;
+  self._sandbox_runtime_library_path = opts.runtimeLibraryPath;
+  self._sandbox_apis = opts.apis;
 
   self._openedFds = [];
 }
 
+util.inherits(FileSystemReadOnly, ApiModule);
+
 FileSystemReadOnly.MANIFEST_PATH = '/codius-manifest.json';
 FileSystemReadOnly.SUBMODULE_PREFIX = '/node_modules';
 FileSystemReadOnly.HASH_REGEX = /^[0-9a-fA-F]{64}$/;
+FileSystemReadOnly.GLOBAL_MODULE_PREFIX = '/usr/lib/node';
+FileSystemReadOnly.GLOBAL_MODULE_EXTENSION = '.js';
 
 FileSystemReadOnly.methods = [
   'stat',
@@ -66,22 +84,15 @@ FileSystemReadOnly._createSystemError = function (path, code, methodName) {
   return error;
 }
 
-FileSystemReadOnly.prototype.getMethod = function(name) {
-  var self = this;
-
-  if (FileSystemReadOnly.methods.indexOf(name) !== -1) {
-    return self[name].bind(self);
-  }
-
-};
-
 
 FileSystemReadOnly.prototype.stat = function(path, callback) {
   var self = this;
 
-  var fileHash = this._translateFilenameToHash(path);
-  if (fileHash) {
-    fs.stat(self._sandbox_filesystem_path + fileHash, callback);
+  var filePath = this._translateFilenameToPath(path);
+  if (filePath === 'dir') {
+    callback(null, FileSystemReadOnly.STAT_FOR_DIRECTORIES);
+  } else if (filePath) {
+    fs.stat(filePath, callback);
   } else {
     callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'stat'));
   }
@@ -90,11 +101,11 @@ FileSystemReadOnly.prototype.stat = function(path, callback) {
 FileSystemReadOnly.prototype.lstat = function(path, callback) {
   var self = this;
 
-  var fileHash = this._translateFilenameToHash(path);
-  if (fileHash === 'dir') {
+  var filePath = this._translateFilenameToPath(path);
+  if (filePath === 'dir') {
     callback(null, FileSystemReadOnly.STAT_FOR_DIRECTORIES);
-  } else if (fileHash) {
-    fs.lstat(self._sandbox_filesystem_path + fileHash, callback);
+  } else if (filePath) {
+    fs.lstat(filePath, callback);
   } else {
     callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'lstat'));
   }
@@ -128,9 +139,9 @@ FileSystemReadOnly.prototype.fstat = function(fd, callback) {
 FileSystemReadOnly.prototype.open = function(path, flags, mode, callback) {
   var self = this;
 
-  var fileHash = this._translateFilenameToHash(path);
-  if (fileHash) {
-    fs.open(self._sandbox_filesystem_path + fileHash, 'r', function (error, fd) {
+  var filePath = this._translateFilenameToPath(path);
+  if (filePath) {
+    fs.open(filePath, 'r', function (error, fd) {
       if (!error) {
         self._openedFds[fd] = true;
       }
@@ -162,6 +173,49 @@ FileSystemReadOnly.prototype.read = function(fd, size, position, encoding, callb
 
   // TODO Should not be using legacy API
   fs.read(fd, size, position, encoding, callback);
+};
+
+FileSystemReadOnly.prototype._translateFilenameToPath = function (path, manifest, manifestHash) {
+  var self = this;
+
+  if (!manifest) {
+    manifest = self._manifest;
+  }
+
+  if (!manifestHash) {
+    manifestHash = self._manifest_hash;
+  }
+
+  // Case: Global runtime modules ('/usr/lib/node/*.js')
+  if (path.slice(0, FileSystemReadOnly.GLOBAL_MODULE_PREFIX.length) === FileSystemReadOnly.GLOBAL_MODULE_PREFIX &&
+      path.slice(path.length - FileSystemReadOnly.GLOBAL_MODULE_EXTENSION.length) === FileSystemReadOnly.GLOBAL_MODULE_EXTENSION) {
+    var availableApis = _.intersection(manifest.apis, self._sandbox_apis);
+
+    var moduleNameStartPos = FileSystemReadOnly.GLOBAL_MODULE_PREFIX.length + 1;
+    var moduleNameEndPos = path.length - FileSystemReadOnly.GLOBAL_MODULE_EXTENSION.length;
+    var requestedModule = path.slice(moduleNameStartPos, moduleNameEndPos);
+
+    if (availableApis.indexOf(requestedModule) !== -1) {
+      return self._sandbox_runtime_library_path + requestedModule + FileSystemReadOnly.GLOBAL_MODULE_EXTENSION;
+    }
+
+  // Case: Simulate the directories /usr /usr/lib and /usr/lib/node
+  } else if (path === '/usr' || path === '/usr/lib' || path === '/usr/lib/node') {
+
+    return 'dir';
+
+  // Case: Virtual file system (any other file)
+  } else {
+    var fileHash = self._translateFilenameToHash(path, manifest, manifestHash);
+
+    if (fileHash === 'dir') {
+      return 'dir';
+    } else if (fileHash) {
+      return self._sandbox_filesystem_path + fileHash;
+    } else {
+      return false;
+    }
+  }
 };
 
 FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest, manifestHash) {
