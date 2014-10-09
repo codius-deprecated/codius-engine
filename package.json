@@ -1,6 +1,6 @@
 {
   "name": "codius-engine",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Codius smart oracle runtime engine for Node.js",
   "main": "index.js",
   "repository": {
