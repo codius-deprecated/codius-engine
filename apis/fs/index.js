@@ -21,6 +21,10 @@ var _           = require('lodash');
 
 var ApiModule   = require('../../lib/api_module').ApiModule;
 
+var VirtualDirectory = require('./virtual_directory').VirtualDirectory;
+var VirtualFile = require('./virtual_file').VirtualFile;
+var BuiltinFile = require('./builtin_file').BuiltinFile;
+
 function FileSystemReadOnly(opts) {
   ApiModule.call(this);
 
@@ -31,6 +35,8 @@ function FileSystemReadOnly(opts) {
   self._sandbox_filesystem_path = opts.filesystemPath;
   self._sandbox_runtime_library_path = opts.runtimeLibraryPath;
   self._sandbox_apis = opts.apis;
+
+  self._availableApis = _.intersection(self._manifest.apis, self._sandbox_apis);
 
   self._openedFds = [];
 }
@@ -49,27 +55,9 @@ FileSystemReadOnly.methods = [
   'fstat',
   'open',
   'close',
-  'read'
+  'read',
+  'readdir'
 ];
-
-// We don't really care about any of the stat properties of the virtual
-// directories, so we just return something realistic.
-// TODO Could be more realistic.
-FileSystemReadOnly.STAT_FOR_DIRECTORIES = {
-  dev: 2049,
-  mode: 16893,
-  nlink: 5,
-  uid: 1000,
-  gid: 1000,
-  rdev: 0,
-  blksize: 4096,
-  ino: 6695080,
-  size: 4096,
-  blocks: 8,
-  atime: 'Tue Oct 07 2014 11:02:22 GMT-0700 (PDT)',
-  mtime: 'Tue Oct 07 2014 10:54:18 GMT-0700 (PDT)',
-  ctime: 'Tue Oct 07 2014 10:54:18 GMT-0700 (PDT)'
-};
 
 FileSystemReadOnly._createSystemError = function (path, code, methodName) {
   if ("number" !== typeof constants[code]) {
@@ -88,11 +76,9 @@ FileSystemReadOnly._createSystemError = function (path, code, methodName) {
 FileSystemReadOnly.prototype.stat = function(path, callback) {
   var self = this;
 
-  var filePath = this._translateFilenameToPath(path);
-  if (filePath === 'dir') {
-    callback(null, FileSystemReadOnly.STAT_FOR_DIRECTORIES);
-  } else if (filePath) {
-    fs.stat(filePath, callback);
+  var file = this._translateFilenameToPath(path);
+  if (file) {
+    file.stat(callback);
   } else {
     callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'stat'));
   }
@@ -101,11 +87,9 @@ FileSystemReadOnly.prototype.stat = function(path, callback) {
 FileSystemReadOnly.prototype.lstat = function(path, callback) {
   var self = this;
 
-  var filePath = this._translateFilenameToPath(path);
-  if (filePath === 'dir') {
-    callback(null, FileSystemReadOnly.STAT_FOR_DIRECTORIES);
-  } else if (filePath) {
-    fs.lstat(filePath, callback);
+  var file = this._translateFilenameToPath(path);
+  if (file) {
+    file.lstat(callback);
   } else {
     callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'lstat'));
   }
@@ -120,6 +104,19 @@ FileSystemReadOnly.prototype.fstat = function(fd, callback) {
   }
 
   fs.fstat(fd, callback);
+};
+
+FileSystemReadOnly.prototype.readdir = function(path, callback) {
+  var self = this;
+
+  var file = this._translateFilenameToPath(path);
+  if (file && file.isDirectory()) {
+    file.readdir(callback);
+  } else if (file) {
+    callback(FileSystemReadOnly._createSystemError(path, 'ENOTDIR', 'readdir'));
+  } else {
+    callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'readdir'));
+  }
 };
 
 /**
@@ -139,14 +136,16 @@ FileSystemReadOnly.prototype.fstat = function(fd, callback) {
 FileSystemReadOnly.prototype.open = function(path, flags, mode, callback) {
   var self = this;
 
-  var filePath = this._translateFilenameToPath(path);
-  if (filePath) {
-    fs.open(filePath, 'r', function (error, fd) {
+  var file = this._translateFilenameToPath(path);
+  if (file && !file.isDirectory()) {
+    fs.open(file.getRealPath(), 'r', function (error, fd) {
       if (!error) {
         self._openedFds[fd] = true;
       }
       callback(error, fd);
     });
+  } else if (file) {
+    callback(FileSystemReadOnly._createSystemError(path, 'EISDIR', 'open'));
   } else {
     callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'open'));
   }
@@ -189,32 +188,32 @@ FileSystemReadOnly.prototype._translateFilenameToPath = function (path, manifest
   // Case: Global runtime modules ('/usr/lib/node/*.js')
   if (path.slice(0, FileSystemReadOnly.GLOBAL_MODULE_PREFIX.length) === FileSystemReadOnly.GLOBAL_MODULE_PREFIX &&
       path.slice(path.length - FileSystemReadOnly.GLOBAL_MODULE_EXTENSION.length) === FileSystemReadOnly.GLOBAL_MODULE_EXTENSION) {
-    var availableApis = _.intersection(manifest.apis, self._sandbox_apis);
 
     var moduleNameStartPos = FileSystemReadOnly.GLOBAL_MODULE_PREFIX.length + 1;
     var moduleNameEndPos = path.length - FileSystemReadOnly.GLOBAL_MODULE_EXTENSION.length;
     var requestedModule = path.slice(moduleNameStartPos, moduleNameEndPos);
 
-    if (availableApis.indexOf(requestedModule) !== -1) {
-      return self._sandbox_runtime_library_path + requestedModule + FileSystemReadOnly.GLOBAL_MODULE_EXTENSION;
-    }
-
-  // Case: Simulate the directories /usr /usr/lib and /usr/lib/node
-  } else if (path === '/usr' || path === '/usr/lib' || path === '/usr/lib/node') {
-
-    return 'dir';
-
-  // Case: Virtual file system (any other file)
-  } else {
-    var fileHash = self._translateFilenameToHash(path, manifest, manifestHash);
-
-    if (fileHash === 'dir') {
-      return 'dir';
-    } else if (fileHash) {
-      return self._sandbox_filesystem_path + fileHash;
+    if (self._availableApis.indexOf(requestedModule) !== -1) {
+      return new BuiltinFile(self._sandbox_runtime_library_path + requestedModule + FileSystemReadOnly.GLOBAL_MODULE_EXTENSION);
     } else {
       return false;
     }
+
+  // Case: Simulate the directories /usr /usr/lib and /usr/lib/node
+  } else if (path === '/usr') {
+    return new VirtualDirectory(['lib']);
+
+  } else if (path === '/usr/lib') {
+    return new VirtualDirectory(['node']);
+
+  } else if (path === '/usr/lib/node') {
+    return new VirtualDirectory(self._availableApis.map(function (basename) {
+      return basename + FileSystemReadOnly.GLOBAL_MODULE_EXTENSION;
+    }));
+
+  // Case: Virtual file system (any other file)
+  } else {
+    return self._translateFilenameToHash(path, manifest, manifestHash);
   }
 };
 
@@ -250,11 +249,15 @@ FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest
       throw new Error('Security error: Invalid manifest hash');
     }
 
-    return manifestHash;
+    return new VirtualFile(manifestHash, self._sandbox_filesystem_path);
 
-  // Case: Two special virtual directories: module root and node_modules folder
-  } else if (path === '/.' || path === '/node_modules') {
-    return 'dir';
+  // Case: Special directory: module root
+  } else if (path === '/' || path === '/.') {
+    return new VirtualDirectory(Object.keys(manifest.files));
+
+  // Case: Special directory: node_modules folder
+  } else if (path === '/node_modules') {
+    return new VirtualDirectory(Object.keys(manifest.modules));
 
   // Case: the file is from a submodule (node_modules)
   } else if (path.substr(0, FileSystemReadOnly.SUBMODULE_PREFIX.length) === FileSystemReadOnly.SUBMODULE_PREFIX) {
@@ -271,7 +274,7 @@ FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest
       moduleManifest = fs.readFileSync(self._sandbox_filesystem_path + moduleManifestHash, { encoding: 'utf8' });
       moduleManifest = JSON.parse(moduleManifest);
     } catch(error) {
-      return _handleError(new Error('Cannot load manifest for module: "' + String(moduleName) + '". ' + error));
+      throw new Error('Cannot load manifest for module: "' + String(moduleName) + '". ' + error);
     }
 
     // Get the remainder of the path and recurse to the submodule's manifest
@@ -296,14 +299,15 @@ FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest
 
     // Is it a directory?
     if (typeof context === 'object') {
-      return 'dir';
+      return new VirtualDirectory(Object.keys(context));
     } else {
       // Ensure the file hash is actually a hash
       if (!FileSystemReadOnly.HASH_REGEX.test(context)) {
         throw new Error('Security error: Invalid manifest hash');
       }
 
-      return context;
+      // Constructor takes the hash of the file as an argument.
+      return new VirtualFile(context, self._sandbox_filesystem_path);
     }
   } else {
     return false;
