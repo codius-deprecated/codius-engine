@@ -17,7 +17,7 @@ function NetworkApi(runner) {
   var self = this;
 
   this._runner = runner;
-  this._connections = [];
+  this._connections = [null, null, null, null];
   this._ports = [];
 }
 
