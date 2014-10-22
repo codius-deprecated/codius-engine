@@ -68,7 +68,7 @@ ProxiedSocket.prototype.connect = function (family, address, port, callback) {
   });
 };
 
-ProxiedSocket.prototype.bind = function (ports, family, address, port, callback) {
+ProxiedSocket.prototype.bind = function (netApi, family, address, port, callback) {
   var self = this;
 
   // TODO-CODIUS: Actually honor the family choice
@@ -77,16 +77,17 @@ ProxiedSocket.prototype.bind = function (ports, family, address, port, callback)
     throw new Error("Unsupported socket domain: "+family);
   }
 
-  if (ports[port]) {
+  if (netApi.getPortListener(port)) {
     // Port is already bound
     callback(SystemError.create(address+':'+port, 'EADDRINUSE', 'bind'));
   } else {
-    ports[port] = function(stream) {
+    console.log('contract listening on port '+port);
+    netApi.addPortListener(port, function(stream) {
       // We have a connection - a socket object will be assigned to the connection with accept()
       self._waiting_incoming_connections.push(stream);
 
       // console.log('Fake socket server connected to: ' + sock.remoteAddress +':'+ sock.remotePort);
-    };
+    });
 
     callback(null, 0);
   }

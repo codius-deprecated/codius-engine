@@ -1,6 +1,6 @@
 exports.init = function (engine, config) {
   engine.registerAPI('net', function (runner){
-    return new NetworkApi();
+    return new NetworkApi(runner);
   });
 };
 
@@ -11,11 +11,12 @@ var util = require('util');
 var ApiModule = require('../../lib/api_module').ApiModule;
 var ProxiedSocket = require('./proxied_socket').ProxiedSocket;
 
-function NetworkApi() {
+function NetworkApi(runner) {
   ApiModule.call(this);
 
   var self = this;
 
+  this._runner = runner;
   this._connections = [];
   this._ports = [];
 }
@@ -60,7 +61,7 @@ NetworkApi.prototype.read = function (connectionId, maxBytes, callback) {
 NetworkApi.prototype.bind = function (connectionId, family, address, port, callback) {
   var sock = this._connections[connectionId];
   if (sock) {
-    sock.bind(this._ports, family, address, port, callback);
+    sock.bind(this, family, address, port, callback);
   } else {
     throw new Error('Invalid connection ID');
   }
@@ -108,6 +109,16 @@ NetworkApi.prototype.write = function (connectionId, data, dataFormat, callback)
  * This method will return a function that takes one parameter, a stream that
  * will be piped into the virtual socket.
  */
-NetworkApi.prototype.getListener = function (port) {
+NetworkApi.prototype.getPortListener = function (port) {
   return this._ports[port];
+};
+
+/**
+ * Register a new virtual listener.
+ *
+ * This should only be called by ProxiedSocket.
+ */
+NetworkApi.prototype.addPortListener = function (port, listener) {
+  this._ports[port] = listener;
+  this._runner.notifyAboutPortListener(port, listener);
 };
