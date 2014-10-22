@@ -17,6 +17,7 @@ function NetworkApi() {
   var self = this;
 
   this._connections = [];
+  this._ports = [];
 }
 
 util.inherits(NetworkApi, ApiModule);
@@ -27,6 +28,7 @@ NetworkApi.methods = [
   'read',
   'write',
   'bind',
+  'accept',
   'close'
 ];
 
@@ -58,7 +60,16 @@ NetworkApi.prototype.read = function (connectionId, maxBytes, callback) {
 NetworkApi.prototype.bind = function (connectionId, family, address, port, callback) {
   var sock = this._connections[connectionId];
   if (sock) {
-    sock.bind(family, address, port, callback);
+    sock.bind(this._ports, family, address, port, callback);
+  } else {
+    throw new Error('Invalid connection ID');
+  }
+};
+
+NetworkApi.prototype.accept = function (connectionId, callback) {
+  var sock = this._connections[connectionId];
+  if (sock) {
+    sock.accept(this._connections, callback);
   } else {
     throw new Error('Invalid connection ID');
   }
@@ -87,4 +98,16 @@ NetworkApi.prototype.write = function (connectionId, data, dataFormat, callback)
   } else {
     throw new Error('Invalid connection ID');
   }
+};
+
+/**
+ * Return a listener function for a certain port.
+ *
+ * This allows the outside to simulate connections to the sandbox.
+ *
+ * This method will return a function that takes one parameter, a stream that
+ * will be piped into the virtual socket.
+ */
+NetworkApi.prototype.getListener = function (port) {
+  return this._ports[port];
 };

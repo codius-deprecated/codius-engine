@@ -15,11 +15,11 @@ exports.init = function (engine, config) {
 
 var fs          = require('fs');
 var path_module = require('path');
-var constants   = require('constants');
 var util        = require('util');
 var _           = require('lodash');
 
 var ApiModule   = require('../../lib/api_module').ApiModule;
+var SystemError = require('../../lib/system_error').SystemError;
 
 var VirtualDirectory = require('./virtual_directory').VirtualDirectory;
 var VirtualFile = require('./virtual_file').VirtualFile;
@@ -59,20 +59,6 @@ FileSystemReadOnly.methods = [
   'readdir'
 ];
 
-FileSystemReadOnly._createSystemError = function (path, code, methodName) {
-  if ("number" !== typeof constants[code]) {
-    console.error('Tried to create error with invalid error code "'+code+'"');
-    code = 'EFAULT';
-  }
-
-  var error = new Error(code+', '+methodName+' \''+path+'\'');
-  error.errno = constants[code];
-  error.code = code;
-  error.path = path;
-  return error;
-}
-
-
 FileSystemReadOnly.prototype.stat = function(path, callback) {
   var self = this;
 
@@ -80,7 +66,7 @@ FileSystemReadOnly.prototype.stat = function(path, callback) {
   if (file) {
     file.stat(callback);
   } else {
-    callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'stat'));
+    callback(SystemError.create(path, 'ENOENT', 'stat'));
   }
 };
 
@@ -91,7 +77,7 @@ FileSystemReadOnly.prototype.lstat = function(path, callback) {
   if (file) {
     file.lstat(callback);
   } else {
-    callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'lstat'));
+    callback(SystemError.create(path, 'ENOENT', 'lstat'));
   }
 };
 
@@ -99,7 +85,7 @@ FileSystemReadOnly.prototype.fstat = function(fd, callback) {
   var self = this;
 
   if (!self._openedFds[fd]) {
-    callback(FileSystemReadOnly._createSystemError(path, 'EBADF', 'fstat'));
+    callback(SystemError.create(path, 'EBADF', 'fstat'));
     return;
   }
 
@@ -113,9 +99,9 @@ FileSystemReadOnly.prototype.readdir = function(path, callback) {
   if (file && file.isDirectory()) {
     file.readdir(callback);
   } else if (file) {
-    callback(FileSystemReadOnly._createSystemError(path, 'ENOTDIR', 'readdir'));
+    callback(SystemError.create(path, 'ENOTDIR', 'readdir'));
   } else {
-    callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'readdir'));
+    callback(SystemError.create(path, 'ENOENT', 'readdir'));
   }
 };
 
@@ -145,9 +131,9 @@ FileSystemReadOnly.prototype.open = function(path, flags, mode, callback) {
       callback(error, fd);
     });
   } else if (file) {
-    callback(FileSystemReadOnly._createSystemError(path, 'EISDIR', 'open'));
+    callback(SystemError.create(path, 'EISDIR', 'open'));
   } else {
-    callback(FileSystemReadOnly._createSystemError(path, 'ENOENT', 'open'));
+    callback(SystemError.create(path, 'ENOENT', 'open'));
   }
 };
 
@@ -155,7 +141,7 @@ FileSystemReadOnly.prototype.close = function(fd, callback) {
   var self = this;
 
   if (!self._openedFds[fd]) {
-    callback(FileSystemReadOnly._createSystemError(path, 'EBADF', 'close'));
+    callback(SystemError.create(path, 'EBADF', 'close'));
     return;
   }
 
@@ -166,7 +152,7 @@ FileSystemReadOnly.prototype.read = function(fd, size, position, encoding, callb
   var self = this;
 
   if (!self._openedFds[fd]) {
-    callback(FileSystemReadOnly._createSystemError(path, 'EBADF', 'read'));
+    callback(SystemError.create(path, 'EBADF', 'read'));
     return;
   }
 

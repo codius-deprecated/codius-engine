@@ -1,7 +1,8 @@
 var net = require('net');
+var SystemError = require('../../lib/system_error').SystemError;
 
 var ProxiedSocket = function (domain, type, protocol) {
-  if (domain !== ProxiedSocket.AF_INET) {
+  if (ProxiedSocket.SUPPORTED_FAMILIES.indexOf(domain) === -1) {
     throw new Error("Unsupported socket domain: "+domain);
   }
 
@@ -15,19 +16,25 @@ var ProxiedSocket = function (domain, type, protocol) {
 
   this._socket = null;
   this._buffer = [];
-  this._sockets_to_accept = [];
+  this._waiting_incoming_connections = [];
   this._eof = false;
 }
 
 ProxiedSocket.AF_INET = 2;
+ProxiedSocket.AF_INET6 = 10;
 
 ProxiedSocket.SOCK_STREAM = 1;
+
+ProxiedSocket.SUPPORTED_FAMILIES = [
+  ProxiedSocket.AF_INET,
+  ProxiedSocket.AF_INET6
+];
 
 ProxiedSocket.prototype.connect = function (family, address, port, callback) {
   var self = this;
 
-  if (family != ProxiedSocket.AF_INET) {
-    throw new Error("Unsupported socket family: "+family);
+  if (ProxiedSocket.SUPPORTED_FAMILIES.indexOf(family) === -1) {
+    throw new Error("Unsupported socket domain: "+family);
   }
 
   var addressArray = [
@@ -61,42 +68,50 @@ ProxiedSocket.prototype.connect = function (family, address, port, callback) {
   });
 };
 
-ProxiedSocket.prototype.bind = function (family, address, port, callback) {
+ProxiedSocket.prototype.bind = function (ports, family, address, port, callback) {
   var self = this;
 
-  if (family != ProxiedSocket.AF_INET) {
-    throw new Error("Unsupported socket family: "+family);
+  // TODO-CODIUS: Actually honor the family choice
+
+  if (ProxiedSocket.SUPPORTED_FAMILIES.indexOf(family) === -1) {
+    throw new Error("Unsupported socket domain: "+family);
   }
 
-  var addressArray = [
-    address       & 0xff,
-    address >>  8 & 0xff,
-    address >> 16 & 0xff,
-    address >> 24 & 0xff
-  ];
+  if (ports[port]) {
+    // Port is already bound
+    callback(SystemError.create(address+':'+port, 'EADDRINUSE', 'bind'));
+  } else {
+    ports[port] = function(stream) {
+      // We have a connection - a socket object will be assigned to the connection with accept()
+      self._waiting_incoming_connections.push(stream);
 
-  // Convert endianness
-  port = (port >> 8 & 0xff) + (port << 8 & 0xffff);
+      // console.log('Fake socket server connected to: ' + sock.remoteAddress +':'+ sock.remotePort);
+    };
 
-  self._socket=net.createServer(function(sock) {
-    self._socket.on('error', function(error){
-      console.log('socket error: ', error);
-    });
-
-    // We have a connection - a socket object will be assigned to the connection with accept()
-    self._sockets_to_accept.push(sock);
-
-    // console.log('Fake socket server connected to: ' + sock.remoteAddress +':'+ sock.remotePort);
-
-  }).listen(port, addressArray.join('.'));
-
-  callback(null, 0);
+    callback(null, 0);
+  }
 };
 
-ProxiedSocket.prototype.accept = function() {
+ProxiedSocket.prototype.accept = function(connections, callback) {
   var self = this;
 
-  return self._sockets_to_accept.shift();
+  if (self._waiting_incoming_connections.length) {
+    var stream = self._waiting_incoming_connections.shift();
+    var peer_sock = new ProxiedSocket(ProxiedSocket.AF_INET, ProxiedSocket.SOCK_STREAM, 0);
+    peer_sock._socket = stream;
+    peer_sock._socket.on('data', function(data) {
+      peer_sock._buffer.push(data);
+    });
+    peer_sock._socket.on('end', function () {
+      peer_sock._eof = true;
+    });
+    var connectionId = connections.length;
+    connections.push(peer_sock);
+    callback(null, connectionId);
+  } else {
+    // EAGAIN
+    callback(null, -11);
+  }
 };
 
 ProxiedSocket.prototype.read = function (maxBytes, callback) {
