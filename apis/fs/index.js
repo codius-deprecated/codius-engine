@@ -3,6 +3,7 @@ exports.init = function (engine, config) {
     var manifest = runner.getManifest();
     var manifestHash = runner.getManifestHash();
     return new FileSystemReadOnly({
+      runner: runner,
       filesystemPath: config.contractsFilesystemPath,
       runtimeLibraryPath: config.runtimeLibraryPath,
       apis: config.apis,
@@ -30,6 +31,7 @@ function FileSystemReadOnly(opts) {
 
   var self = this;
 
+  self._runner = opts.runner;
   self._manifest = opts.manifest;
   self._manifest_hash = opts.manifestHash;
   self._sandbox_filesystem_path = opts.filesystemPath;
@@ -89,7 +91,7 @@ FileSystemReadOnly.prototype.fstat = function(fd, callback) {
     return;
   }
 
-  fs.fstat(fd, callback);
+  fs.fstat(self._openedFds[fd], callback);
 };
 
 FileSystemReadOnly.prototype.readdir = function(path, callback) {
@@ -125,10 +127,11 @@ FileSystemReadOnly.prototype.open = function(path, flags, mode, callback) {
   var file = this._translateFilenameToPath(path);
   if (file && !file.isDirectory()) {
     fs.open(file.getRealPath(), 'r', function (error, fd) {
+      var virtualFd = self._runner.getNextFreeFileDescriptor();
       if (!error) {
-        self._openedFds[fd] = true;
+        self._openedFds[virtualFd] = fd;
       }
-      callback(error, fd);
+      callback(error, virtualFd);
     });
   } else if (file) {
     callback(SystemError.create(path, 'EISDIR', 'open'));
@@ -145,7 +148,15 @@ FileSystemReadOnly.prototype.close = function(fd, callback) {
     return;
   }
 
-  fs.close(fd, callback);
+  // It's safer to always discard the fd mapping very agressively. If the
+  // sandboxed code can somehow maintain the mapping while the outside fd
+  // is freed up and possibly reused, it could gain access to files it's
+  // not supposed to be able to access.
+  delete self._openedFds[fd];
+
+  fs.close(self._openedFds[fd], function (err) {
+    callback(err);
+  });
 };
 
 FileSystemReadOnly.prototype.read = function(fd, size, position, encoding, callback) {
@@ -157,7 +168,7 @@ FileSystemReadOnly.prototype.read = function(fd, size, position, encoding, callb
   }
 
   // TODO Should not be using legacy API
-  fs.read(fd, size, position, encoding, callback);
+  fs.read(self._openedFds[fd], size, position, encoding, callback);
 };
 
 FileSystemReadOnly.prototype._translateFilenameToPath = function (path, manifest, manifestHash) {

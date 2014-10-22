@@ -17,7 +17,7 @@ function NetworkApi(runner) {
   var self = this;
 
   this._runner = runner;
-  this._connections = [null, null, null, null];
+  this._connections = [];
   this._ports = [];
 }
 
@@ -35,8 +35,8 @@ NetworkApi.methods = [
 
 NetworkApi.prototype.socket = function (domain, type, protocol, callback) {
   sock = new ProxiedSocket(domain, type, protocol);
-  var connectionId = this._connections.length;
-  this._connections.push(sock);
+  var connectionId = this._runner.getNextFreeFileDescriptor();
+  this._connections[connectionId] = sock;
   callback(null, connectionId);
 };
 
