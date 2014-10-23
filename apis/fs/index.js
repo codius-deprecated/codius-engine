@@ -152,9 +152,10 @@ FileSystemReadOnly.prototype.close = function(fd, callback) {
   // sandboxed code can somehow maintain the mapping while the outside fd
   // is freed up and possibly reused, it could gain access to files it's
   // not supposed to be able to access.
+  var real_fd = self._openedFds[fd];
   delete self._openedFds[fd];
 
-  fs.close(self._openedFds[fd], function (err) {
+  fs.close(real_fd, function (err) {
     callback(err);
   });
 };
