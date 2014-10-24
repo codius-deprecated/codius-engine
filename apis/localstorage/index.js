@@ -1,7 +1,10 @@
 exports.init = function (engine, config) {
-  engine.registerAPI('localstorage', function (runner){
+  engine.registerAPI('localstorage', function (runner, storage){
     var manifestHash = runner.getManifestHash();
-    return new LocalStorage(manifestHash);
+    return new LocalStorage({
+      contractId: manifestHash,
+      storage: storage
+    });
   });
 };
 
@@ -9,13 +12,13 @@ var util = require('util');
 
 var ApiModule = require('../../lib/api_module').ApiModule;
 
-function LocalStorage(contractId) {
+function LocalStorage(opts) {
   var self = this;
 
   ApiModule.call(this);
 
-  self._contractId = contractId;
-  self._storage = LocalStorage.defaultStorage();
+  self._contractId = opts.contractId;
+  self._storage = opts.storage || LocalStorage.defaultStorage();
 }
 util.inherits(LocalStorage, ApiModule);
 
