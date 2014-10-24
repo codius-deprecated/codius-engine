@@ -42,7 +42,6 @@ LocalStorage.defaultStorage = function(){
     if (typeof storageObject[contractId] !== 'object') {
       storageObject[contractId] = {};
     }
-    console.log(storageObject[contractId], key)
     callback(null, storageObject[contractId][key]);
   }
 
@@ -161,7 +160,7 @@ LocalStorage.prototype.clear = function(callback) {
   }
 
   try {
-    self._storage.clear.call(self._storage, self._contractId, key, callback);
+    self._storage.clear.call(self._storage, self._contractId, callback);
   } catch (error) {
     callback(error);
   }
