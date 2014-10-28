@@ -3,16 +3,16 @@ var path = require('path');
 
 var AbstractFile = require('./abstract_file').AbstractFile;
 
-var VirtualFile = function (path) {
+var BuiltinFile = function (path) {
   AbstractFile.apply(this);
 
   this._path = path;
 };
 
-util.inherits(VirtualFile, AbstractFile);
+util.inherits(BuiltinFile, AbstractFile);
 
-VirtualFile.prototype.getRealPath = function () {
+BuiltinFile.prototype.getRealPath = function () {
   return this._path;
 };
 
-exports.VirtualFile = VirtualFile;
+exports.BuiltinFile = BuiltinFile;
