@@ -13,7 +13,12 @@ var VirtualFile = function (hash, contractFilesystemPath) {
 util.inherits(VirtualFile, AbstractFile);
 
 VirtualFile.prototype.getRealPath = function () {
-  return path.join(this._contractFilesystemPath, this._hash);
+	var self = this;
+
+	var firstDir = self._hash.slice(0, 2);
+	var secondDir = self._hash.slice(2, 4);
+
+  return path.join(this._contractFilesystemPath, firstDir, secondDir, this._hash);
 };
 
 exports.VirtualFile = VirtualFile;
