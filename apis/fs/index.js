@@ -269,7 +269,9 @@ FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest
     var moduleManifestHash = manifest.modules[moduleName];
     var moduleManifest;
     try {
-      moduleManifest = fs.readFileSync(self._sandbox_filesystem_path + moduleManifestHash, { encoding: 'utf8' });
+      var firstDir = moduleManifestHash.slice(0, 2);
+      var secondDir = moduleManifestHash.slice(2, 4);
+      moduleManifest = fs.readFileSync(path_module.join(self._sandbox_filesystem_path, firstDir, secondDir, moduleManifestHash), { encoding: 'utf8' });
       moduleManifest = JSON.parse(moduleManifest);
     } catch(error) {
       throw new Error('Cannot load manifest for module: "' + String(moduleName) + '". ' + error);
