@@ -23,5 +23,10 @@ DnsApi.methods = [
 ];
 
 DnsApi.prototype.lookup = function (hostname, family, callback) {
+  if (typeof family === 'function') {
+    callback = family;
+    family = 0;
+  }
+
   dns.lookup(hostname, family, callback);
 };
