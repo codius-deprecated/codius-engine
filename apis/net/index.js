@@ -30,7 +30,10 @@ NetworkApi.methods = [
   'write',
   'bind',
   'accept',
-  'close'
+  'close',
+  'getRemoteFamily',
+  'getRemotePort',
+  'getRemoteAddress'
 ];
 
 NetworkApi.prototype.socket = function (domain, type, protocol, callback) {
@@ -96,6 +99,33 @@ NetworkApi.prototype.write = function (connectionId, data, dataFormat, callback)
       throw new Error('Invalid data format for socket write.');
     }
     sock.write(buffer, callback);
+  } else {
+    throw new Error('Invalid connection ID');
+  }
+};
+
+NetworkApi.prototype.getRemoteFamily = function (connectionId, callback) {
+  var sock = this._connections[connectionId];
+  if (sock) {
+    sock.getRemoteFamily(callback);
+  } else {
+    throw new Error('Invalid connection ID');
+  }
+};
+
+NetworkApi.prototype.getRemotePort = function (connectionId, callback) {
+  var sock = this._connections[connectionId];
+  if (sock) {
+    sock.getRemotePort(callback);
+  } else {
+    throw new Error('Invalid connection ID');
+  }
+};
+
+NetworkApi.prototype.getRemoteAddress = function (connectionId, callback) {
+  var sock = this._connections[connectionId];
+  if (sock) {
+    sock.getRemoteAddress(callback);
   } else {
     throw new Error('Invalid connection ID');
   }

@@ -86,7 +86,7 @@ ProxiedSocket.prototype.bind = function (netApi, family, address, port, callback
       // We have a connection - a socket object will be assigned to the connection with accept()
       self._waiting_incoming_connections.push(stream);
 
-      // console.log('Fake socket server connected to: ' + sock.remoteAddress +':'+ sock.remotePort);
+      // console.log('Fake socket server connected to: ' + stream.remoteAddress +':'+ stream.remotePort);
     });
 
     callback(null, 0);
@@ -149,6 +149,31 @@ ProxiedSocket.prototype.close = function (callback) {
 
   self._socket.destroy();
   callback(null);
+}
+
+ProxiedSocket.prototype.getRemoteFamily = function (callback) {
+  var self = this;
+
+  var family = self._socket._getpeername().family;
+  if (family === 'IPv4') {
+    callback(null, ProxiedSocket.AF_INET);
+  } else if (family === 'IPv6') {
+    callback(null, ProxiedSocket.AF_INET6);
+  } else {
+    throw new Error("Unsupported socket family: " + family);
+  }
+}
+
+ProxiedSocket.prototype.getRemotePort = function (callback) {
+  var self = this;
+
+  callback(null, self._socket._getpeername().port);
+}
+
+ProxiedSocket.prototype.getRemoteAddress = function (callback) {
+  var self = this;
+
+  callback(null, self._socket._getpeername().address);
 }
 
 exports.ProxiedSocket = ProxiedSocket;
