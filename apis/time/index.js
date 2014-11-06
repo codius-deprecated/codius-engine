@@ -20,21 +20,21 @@ TimeApi.methods = [
   'localtime'
 ];
 
-Date.prototype.getDayOfYear = function() {
-  var start = new Date(this.getFullYear(), 0, 1);
-  var diff = this - start;
+function getDayOfYear (date) {
+  var start = new Date(date.getFullYear(), 0, 1);
+  var diff = date - start;
   var oneDay = 1000 * 60 * 60 * 24;
   return Math.floor(diff / oneDay);
 };
 
-Date.prototype.stdTimezoneOffset = function() {
-  var jan = new Date(this.getFullYear(), 0, 1);
-  var jul = new Date(this.getFullYear(), 6, 1);
+function stdTimezoneOffset (date) {
+  var jan = new Date(date.getFullYear(), 0, 1);
+  var jul = new Date(date.getFullYear(), 6, 1);
   return Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
 };
 
-Date.prototype.isDST = function() {
-  return this.getTimezoneOffset() < this.stdTimezoneOffset();
+function isDST (date) {
+  return date.getTimezoneOffset() < stdTimezoneOffset(date);
 };
 
 TimeApi.prototype.localtime = function (callback) {
@@ -47,8 +47,8 @@ TimeApi.prototype.localtime = function (callback) {
   localtime.tm_mon  = d.getMonth();
   localtime.tm_year = d.getYear();
   localtime.tm_wday = d.getDay();
-  localtime.tm_yday = d.getDayOfYear();
-  localtime.tm_isdst = d.isDST() ? 1 : 0;
+  localtime.tm_yday = getDayOfYear(d);
+  localtime.tm_isdst = isDST(d) ? 1 : 0;
   localtime.tm_gmtoff = -d.getTimezoneOffset() * 60;
   localtime.tm_zone = String(String(d).split("(")[1]).split(")")[0];
 
