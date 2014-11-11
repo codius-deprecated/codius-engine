@@ -17,6 +17,7 @@
     "codius-node-sandbox": "https://github.com/codius/codius-node-sandbox/tarball/master",
     "ecurve": "^1.0.0",
     "extend": "^2.0.0",
+    "ignore": "^2.2.15",
     "lodash": "^2.4.1"
   },
   "devDependencies": {
