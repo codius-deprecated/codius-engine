@@ -55,12 +55,19 @@ FileSystemReadOnly.CONTRACT_PATH = '/contract';
 FileSystemReadOnly.methods = [
   'stat',
   'lstat',
+  'readlink',
   'fstat',
   'open',
   'close',
   'read',
-  'readdir'
+  'readdir',
+  'getdents',
+  'access'
 ];
+
+FileSystemReadOnly.prototype.access = function(path, mode, callback) {
+  callback(null, true);
+}
 
 FileSystemReadOnly.prototype.stat = function(path, callback) {
   var self = this;
@@ -72,6 +79,15 @@ FileSystemReadOnly.prototype.stat = function(path, callback) {
     callback(SystemError.create(path, 'ENOENT', 'stat'));
   }
 };
+
+FileSystemReadOnly.prototype.readlink = function(path, callback) {
+  var file = this._translateFilenameToPath (path);
+  if (file) {
+    callback(SystemError.create(path, 'EINVAL', 'readlink'));
+  } else {
+    callback(SystemError.create(path, 'ENOENT', 'readlink'));
+  }
+}
 
 FileSystemReadOnly.prototype.lstat = function(path, callback) {
   var self = this;
@@ -108,6 +124,18 @@ FileSystemReadOnly.prototype.readdir = function(path, callback) {
   }
 };
 
+FileSystemReadOnly.prototype.getdents = function(fd, callback) {
+  var dir = this._openedFds[fd];
+  console.log('getdents', dir);
+  if (dir.isDirectory()) {
+    dir.getdents(callback);
+  } else if (dir) {
+    callback(SystemError.create(fd, 'ENOTDIR', 'getdents'));
+  } else {
+    callback(SystemError.create(fd, 'EBADF', 'getdents'));
+  }
+}
+
 /**
  *  Open file. Creates a file descriptor.
  *
@@ -134,8 +162,10 @@ FileSystemReadOnly.prototype.open = function(path, flags, mode, callback) {
       }
       callback(error, virtualFd);
     });
-  } else if (file) {
-    callback(SystemError.create(path, 'EISDIR', 'open'));
+  } else if (file && file.isDirectory()) {
+    var virtualFd = self._runner.getNextFreeFileDescriptor();
+    self._openedFds[virtualFd] = file;
+    callback (null, virtualFd);
   } else {
     callback(SystemError.create(path, 'ENOENT', 'open'));
   }
