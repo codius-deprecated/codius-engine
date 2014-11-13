@@ -10,12 +10,18 @@ var VirtualDirectory = function (subNodes) {
   }
 
   this._subNodes = subNodes;
+  this._pos = 0;
 };
 
 util.inherits(VirtualDirectory, AbstractDirectory);
 
 VirtualDirectory.prototype.readdir = function (callback) {
   callback(null, this._subNodes);
+};
+
+VirtualDirectory.prototype.getdents = function (callback) {
+  this._pos += this._subNodes.length;
+  callback (null, this._subNodes.slice(this._pos));
 };
 
 exports.VirtualDirectory = VirtualDirectory;
