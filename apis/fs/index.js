@@ -230,6 +230,8 @@ FileSystemReadOnly.prototype._translateFilenameToPath = function (path, manifest
   } else if (path.slice(0, FileSystemReadOnly.CONTRACT_PATH.length) == FileSystemReadOnly.CONTRACT_PATH) {
     return self._translateFilenameToHash(path.slice(FileSystemReadOnly.CONTRACT_PATH.length), manifest, manifestHash);
   // Case: Simulate the directories /usr /usr/lib and /usr/lib/node
+  } else if (path === '/' ) {
+    return new VirtualDirectory(['usr', 'contract']);
   } else if (path === '/usr') {
     return new VirtualDirectory(['lib']);
 
