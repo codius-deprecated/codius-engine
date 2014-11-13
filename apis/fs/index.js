@@ -198,6 +198,11 @@ FileSystemReadOnly.prototype.close = function(fd, callback) {
 FileSystemReadOnly.prototype.read = function(fd, size, position, encoding, callback) {
   var self = this;
 
+  if (!callback) {
+    callback = encoding;
+    encoding = null;
+  }
+
   if (!self._openedFds[fd]) {
     callback(SystemError.create(fd, 'EBADF', 'read'));
     return;
