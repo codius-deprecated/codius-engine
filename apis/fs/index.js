@@ -50,6 +50,7 @@ FileSystemReadOnly.SUBMODULE_PREFIX = '/node_modules';
 FileSystemReadOnly.HASH_REGEX = /^[0-9a-fA-F]{64}$/;
 FileSystemReadOnly.GLOBAL_MODULE_PREFIX = '/usr/lib/node';
 FileSystemReadOnly.GLOBAL_MODULE_EXTENSION = '.js';
+FileSystemReadOnly.CONTRACT_PATH = '/contract';
 
 FileSystemReadOnly.methods = [
   'stat',
@@ -196,7 +197,8 @@ FileSystemReadOnly.prototype._translateFilenameToPath = function (path, manifest
     } else {
       return false;
     }
-
+  } else if (path.slice(0, FileSystemReadOnly.CONTRACT_PATH.length) == FileSystemReadOnly.CONTRACT_PATH) {
+    return self._translateFilenameToHash(path.slice(FileSystemReadOnly.CONTRACT_PATH.length), manifest, manifestHash);
   // Case: Simulate the directories /usr /usr/lib and /usr/lib/node
   } else if (path === '/usr') {
     return new VirtualDirectory(['lib']);
@@ -211,7 +213,7 @@ FileSystemReadOnly.prototype._translateFilenameToPath = function (path, manifest
 
   // Case: Virtual file system (any other file)
   } else {
-    return self._translateFilenameToHash(path, manifest, manifestHash);
+    return false;
   }
 };
 
@@ -230,14 +232,14 @@ FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest
     throw new Error('Path must be a string.');
   }
 
-  path = path_module.normalize(path);
-
   // Force path to be absolute
   // TODO To allow relative paths, we would need to keep track of the current
   //      working directory, which requires implementing chdir calls.
   if (path.length < 1 || path[0] !== '/') {
     path = '/' + path;
   }
+
+  path = path_module.normalize(path);
 
   // Case: the file requested is the manifest
   if (path === FileSystemReadOnly.MANIFEST_PATH) {
