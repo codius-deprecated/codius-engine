@@ -104,7 +104,7 @@ FileSystemReadOnly.prototype.fstat = function(fd, callback) {
   var self = this;
 
   if (!self._openedFds[fd]) {
-    callback(SystemError.create(path, 'EBADF', 'fstat'));
+    callback(SystemError.create(fd, 'EBADF', 'fstat'));
     return;
   }
 
@@ -195,7 +195,7 @@ FileSystemReadOnly.prototype.read = function(fd, size, position, encoding, callb
   var self = this;
 
   if (!self._openedFds[fd]) {
-    callback(SystemError.create(path, 'EBADF', 'read'));
+    callback(SystemError.create(fd, 'EBADF', 'read'));
     return;
   }
 
