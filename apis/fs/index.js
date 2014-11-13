@@ -186,9 +186,13 @@ FileSystemReadOnly.prototype.close = function(fd, callback) {
   var real_fd = self._openedFds[fd];
   delete self._openedFds[fd];
 
-  fs.close(real_fd, function (err) {
-    callback(err);
-  });
+  if (typeof real_fd == 'object') {
+    callback(null, 0);
+  } else {
+    fs.close(real_fd, function (err) {
+      callback(err);
+    });
+  }
 };
 
 FileSystemReadOnly.prototype.read = function(fd, size, position, encoding, callback) {
