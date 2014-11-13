@@ -293,7 +293,7 @@ FileSystemReadOnly.prototype._translateFilenameToHash = function (path, manifest
     return new VirtualFile(manifestHash, self._sandbox_filesystem_path);
 
   // Case: Special directory: module root
-  } else if (path === '/' || path === '/.') {
+  } else if (path === '/') {
     return new VirtualDirectory(Object.keys(manifest.files));
 
   // Case: Special directory: node_modules folder
