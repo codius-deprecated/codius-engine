@@ -1,53 +1,27 @@
-var codius = process.binding('async');
+var codius = require('codius-api');
 
 function LocalStorage() {
-
 }
 
 LocalStorage.prototype.getItem = function(key, callback) {
-  codius.postMessage({
-    type: 'api',
-    api: 'localstorage',
-    method: 'getItem',
-    data: [key]
-  }, callback);
+  codius.call('localstorage', 'getItem',key, callback);
 };
 
 
 LocalStorage.prototype.setItem = function(key, value, callback) {
-  codius.postMessage({
-    type: 'api',
-    api: 'localstorage',
-    method: 'setItem',
-    data: [key, value]
-  }, callback);
+  codius.call('localstorage', 'setItem', key, callback);
 };
 
 LocalStorage.prototype.removeItem = function(key, callback) {
-  codius.postMessage({
-    type: 'api',
-    api: 'localstorage',
-    method: 'removeItem',
-    data: [key]
-  }, callback);
+  codius.call('localstorage', 'removeItem', key, callback);
 };
 
 LocalStorage.prototype.clear = function(callback) {
-  codius.postMessage({
-    type: 'api',
-    api: 'localstorage',
-    method: 'clear',
-    data: [ ]
-  }, callback);
+  codius.call('localstorage', 'clear', callback);
 };
 
 LocalStorage.prototype.key = function(index, callback) {
-  codius.postMessage({
-    type: 'api',
-    api: 'localstorage',
-    method: 'key',
-    data: [index]
-  }, callback);
+  codius.call('localstorage', 'key', index, callback);
 };
 
 module.exports = new LocalStorage();
