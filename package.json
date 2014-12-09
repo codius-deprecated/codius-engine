@@ -14,6 +14,7 @@
     "bigi": "^1.3.0",
     "bitcoinjs-lib": "^1.1.3",
     "bluebird": "^2.3.5",
+    "codius-node-sandbox": "https://github.com/codius/codius-node-sandbox/tarball/master",
     "codius-sandbox": "codius/codius-sandbox",
     "ecurve": "^1.0.0",
     "extend": "^2.0.0",
