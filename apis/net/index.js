@@ -73,7 +73,7 @@ NetworkApi.prototype.bind = function (connectionId, family, address, port, callb
 NetworkApi.prototype.accept = function (connectionId, callback) {
   var sock = this._connections[connectionId];
   if (sock) {
-    sock.accept(this._connections, callback);
+    sock.accept(this._connections, this._runner, callback);
   } else {
     throw new Error('Invalid connection ID');
   }

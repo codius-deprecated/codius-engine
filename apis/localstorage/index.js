@@ -84,10 +84,10 @@ LocalStorage.defaultStorage = function(){
 };
 
 /**
- *  Takes a function that will be used to 
+ *  Takes a function that will be used to
  *  provide contracts with persistent storage.
  *
- *  Note that each function should expect the 
+ *  Note that each function should expect the
  *  contractId as the first parameter.
  *
  *  @param {Function} contractStorage.getItem
@@ -111,12 +111,7 @@ LocalStorage.prototype.getItem = function(key, callback) {
     return;
   }
 
-  try {
-    self._storage.getItem.call(self._storage, self._contractId, key, callback);
-  } catch (error) {
-    callback(error);
-  }
-
+  self._storage.getItem.call(self._storage, self._contractId, key, callback);
 };
 
 LocalStorage.prototype.setItem = function(key, value, callback) {
@@ -127,12 +122,7 @@ LocalStorage.prototype.setItem = function(key, value, callback) {
     return;
   }
 
-  try {
-    self._storage.setItem.call(self._storage, self._contractId, key, value, callback);
-  } catch (error) {
-    callback(error);
-  }
-
+  self._storage.setItem.call(self._storage, self._contractId, key, value, callback);
 };
 
 LocalStorage.prototype.removeItem = function(key, callback) {
@@ -143,12 +133,7 @@ LocalStorage.prototype.removeItem = function(key, callback) {
     return;
   }
 
-  try {
-    self._storage.removeItem.call(self._storage, self._contractId, key, callback);
-  } catch (error) {
-    callback(error);
-  }
-
+  self._storage.removeItem.call(self._storage, self._contractId, key, callback);
 };
 
 LocalStorage.prototype.clear = function(callback) {
@@ -159,12 +144,7 @@ LocalStorage.prototype.clear = function(callback) {
     return;
   }
 
-  try {
-    self._storage.clear.call(self._storage, self._contractId, callback);
-  } catch (error) {
-    callback(error);
-  }
-
+  self._storage.clear.call(self._storage, self._contractId, callback);
 };
 
 LocalStorage.prototype.key = function(index, callback) {
@@ -175,10 +155,5 @@ LocalStorage.prototype.key = function(index, callback) {
     return;
   }
 
-  try {
-    self._storage.key.call(self._storage, self._contractId, index, callback);
-  } catch (error) {
-    callback(error);
-  }
-
+  self._storage.key.call(self._storage, self._contractId, index, callback);
 };

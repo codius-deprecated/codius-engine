@@ -93,10 +93,10 @@ ProxiedSocket.prototype.bind = function (netApi, family, address, port, callback
   }
 };
 
-ProxiedSocket.prototype.accept = function(connections, callback) {
+ProxiedSocket.prototype.accept = function(connections, runner, callback) {
   var self = this;
 
-  if (self._waiting_incoming_connections.length) {
+  if (self._waiting_incoming_connections.length > 0) {
     var stream = self._waiting_incoming_connections.shift();
     var peer_sock = new ProxiedSocket(ProxiedSocket.AF_INET, ProxiedSocket.SOCK_STREAM, 0);
     peer_sock._socket = stream;
@@ -106,8 +106,8 @@ ProxiedSocket.prototype.accept = function(connections, callback) {
     peer_sock._socket.on('end', function () {
       peer_sock._eof = true;
     });
-    var connectionId = connections.length;
-    connections.push(peer_sock);
+    var connectionId = runner.getNextFreeFileDescriptor();
+    connections[connectionId] = peer_sock;
     callback(null, connectionId);
   } else {
     // EAGAIN
