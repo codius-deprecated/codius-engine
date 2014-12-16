@@ -11,13 +11,11 @@ The engine to run contracts
 
 The engine is the part of Codius responsible for running sandboxed code and providing APIs for that code to communicate with.
 
-For the sandbox we are currently using [`codius/node-sandbox`](https://github.com/codius/node-sandbox), though that will soon be replaced with Native Client.
+For the sandbox we are currently using [`codius/node-sandbox`](https://github.com/codius/node-sandbox), which utilizes Native Client.
 
 The [`Engine`](lib/engine.js) is the main component used to run contract code and the [`ContractRunner`](lib/contractrunner.js) is responsible for handling messages coming from the sandbox and passing valid ones to the corresponding APIs.
 
 Contract code uses the `postMessage` command to communicate with the outside. The format is defined below. Most contracts will not use the `postMessage` command directly but will instead use modules or [`runtime_library`](runtime_library/) components, which are loaded into the sandbox by default.
-
-One of the most important `runtime_library` components is [`require`](runtime_library/module.js) which loads modules, Javascript, and JSON files akin to Node.js's `require`. `require`'s behavior is also outlined below.
 
 ## Questions?
 
@@ -88,23 +86,3 @@ secrets.getKeypair('ec_secp256k1', function(error, keypair){
   //   signature: '304402206f1c9e05bc2ad120e0bb58ff368035359d40597ef034509a7dc66a79d4648bea022015b417401d194cf2917e853a7565cfbce32ee90c5c8f34f54075ee2f87519d88'
   // }
 });
-
-
-```
-
-### Require
-
-`require` can be used in the sandbox to load modules, javascript files, and JSON files.
-
-The following table explains how `require` will interpret paths:
-
-| Given path  | File returned  |
-|---|---|
-| `module_name`  | `main` file identified in `codius_modules/module_name/codius-manifest.json`  |
-| `./file.js` or `./file`  | `./file.js` or `file.js` listed in the `files` of the current context's manifest  |
-| `./file.json` | `./file.json` or `file.json` listed in the `files` of the current context's manifest |
-| `./codius_modules/module_name/file.js` or `module_name/file.js`  | `./file.js` or `file.js` listed in the `files` of `module_name`'s manifest  |
-| `./directory`  | `main` file identified in `./directory/codius-manifest.json` or `./directory/package.json`, or `./directory/index.js`  |
-| `../file.js`  | `./file.js` or `file.js` from the parent directory or parent module of the current context  |
-
-\* Note that absolute paths (e.g. `/codius_modules/module_name/file.js`) are not currently supported.
