@@ -20,8 +20,9 @@
 exports.init = function (engine, config) {
   engine.registerAPI('localstorage', function (runner, storage){
     var manifestHash = runner.getManifestHash();
+    var instanceId = runner.getInstanceId();
     return new LocalStorage({
-      contractId: manifestHash,
+      contractId: manifestHash + instanceId,
       storage: storage
     });
   });

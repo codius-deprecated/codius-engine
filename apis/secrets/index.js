@@ -24,20 +24,22 @@ var ApiModule = require('../../lib/api_module').ApiModule;
 exports.init = function(engine, config, secrets) {
   engine.registerAPI('secrets', function(runner){
     var manifest = runner.getManifest();
-    return new SecretGenerator(manifest, secrets);
+    var instance_id = runner.getInstanceId();
+    return new SecretGenerator(manifest, instance_id, secrets);
   });
 };
 
 /**
  *  Class used to deterministically generate unique contract secrets
  */
-function SecretGenerator(manifest, secrets) {
+function SecretGenerator(manifest, instance_id, secrets) {
   ApiModule.call(this);
 
   var self = this;
 
   self._manifest = manifest;
   self._secrets = secrets;
+  self._instance_id = instance_id;
 }
 
 util.inherits(SecretGenerator, ApiModule);
@@ -68,7 +70,7 @@ SecretGenerator.prototype.getSecret = function(data, callback) {
 
   var secret;
   try {
-    secret = crypto.deriveSecret(self._secrets.CONTRACT_SECRET_GENERATOR, 'CONTRACT_SECRET_' + manifest_hash, 'sha512');
+    secret = crypto.deriveSecret(self._secrets.CONTRACT_SECRET_GENERATOR, 'CONTRACT_SECRET_' + manifest_hash + self._instance_id, 'sha512');
   } catch (error) {
     callback(new Error('Error deriving contract secret: ' + error));
     return;
@@ -100,7 +102,7 @@ SecretGenerator.prototype.getKeypair = function(data, callback) {
     var keypair;
     try {
 
-      keypair = crypto.deriveKeypair(self._secrets.CONTRACT_KEYPAIR_GENERATOR_ec_secp256k1, 'CONTRACT_KEYPAIR_ec_secp256k1_' + manifest_hash, 'ec_secp256k1');
+      keypair = crypto.deriveKeypair(self._secrets.CONTRACT_KEYPAIR_GENERATOR_ec_secp256k1, 'CONTRACT_KEYPAIR_ec_secp256k1_' + manifest_hash + self._instance_id, 'ec_secp256k1');
       keypair.signature = crypto.sign(self._secrets.MASTER_KEYPAIR_ec_secp256k1.private, keypair.public);
 
     } catch (error) {
